@@ -11,6 +11,7 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 	cliflag "k8s.io/component-base/cli/flag"
+	logsapi "k8s.io/component-base/logs/api/v1"
 	_ "k8s.io/component-base/metrics/prometheus/workqueue" // for workqueue metric registration
 	"k8s.io/component-base/version/verflag"
 	"k8s.io/klog/v2"
@@ -41,7 +42,7 @@ func NewAPIServerCommand() *cobra.Command {
 
 			// Activate logging as soon as possible, after that
 			// show flags with the final logging configuration.
-			if err := s.Logs.ValidateAndApply(featureGate); err != nil {
+			if err := logsapi.ValidateAndApply(s.Logs, featureGate); err != nil {
 				return err
 			}
 			cliflag.PrintFlags(fs)
