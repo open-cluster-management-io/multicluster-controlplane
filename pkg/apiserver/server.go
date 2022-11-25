@@ -1,3 +1,4 @@
+// Copyright Contributors to the Open Cluster Management project
 /*
 Copyright 2014 The Kubernetes Authors.
 

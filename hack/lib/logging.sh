@@ -1,3 +1,4 @@
+# Copyright Contributors to the Open Cluster Management project
 #!/usr/bin/env bash
 
 # Controls verbosity of the script output and logging.

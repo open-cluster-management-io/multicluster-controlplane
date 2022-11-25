@@ -1,3 +1,4 @@
+// Copyright Contributors to the Open Cluster Management project
 package ocmcontroller
 
 import (
@@ -14,7 +15,6 @@ import (
 	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
 )
 
-// TODO(ycyaoxdu): add placement controllers
 func InstallRegistraionControllers(ctx context.Context, kubeConfig *rest.Config) error {
 	eventRecorder := events.NewInMemoryRecorder("registration-controller")
 
@@ -24,9 +24,7 @@ func InstallRegistraionControllers(ctx context.Context, kubeConfig *rest.Config)
 		OperatorNamespace: confighub.HubNameSpace,
 	}
 
-	registration.RunControllerManager(ctx, controllerContext)
-
-	return nil
+	return registration.RunControllerManager(ctx, controllerContext)
 }
 
 func InstallPlacementControllers(ctx context.Context, kubeConfig *rest.Config) error {
@@ -38,7 +36,5 @@ func InstallPlacementControllers(ctx context.Context, kubeConfig *rest.Config) e
 		OperatorNamespace: confighub.HubNameSpace,
 	}
 
-	placement.RunControllerManager(ctx, controllerContext)
-
-	return nil
+	return placement.RunControllerManager(ctx, controllerContext)
 }

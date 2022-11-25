@@ -1,3 +1,4 @@
+# Copyright Contributors to the Open Cluster Management project
 FROM golang:1.19 AS builder
 
 ARG OS=linux

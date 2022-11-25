@@ -1,3 +1,4 @@
+[comment]: # ( Copyright Contributors to the Open Cluster Management project )
 # Install managed-serviceaccount add-on 
 
 1. Install manifests on the standalone cluster

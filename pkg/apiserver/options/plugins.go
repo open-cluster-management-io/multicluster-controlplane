@@ -1,3 +1,4 @@
+// Copyright Contributors to the Open Cluster Management project
 package options
 
 // This file exists to force the desired plugin implementations to be linked.

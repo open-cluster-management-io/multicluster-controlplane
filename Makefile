@@ -1,3 +1,4 @@
+# Copyright Contributors to the Open Cluster Management project
 BINARYDIR := bin
 
 KUBECTL?=oc
@@ -9,6 +10,17 @@ IMAGE_REGISTRY?=quay.io/open-cluster-management
 IMAGE_TAG?=latest
 IMAGE_NAME?=$(IMAGE_REGISTRY)/multicluster-controlplane:$(IMAGE_TAG)
 
+check-copyright: 
+	@hack/check/check-copyright.sh
+
+check: check-copyright 
+
+verify-gocilint:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.2
+	go vet ./...
+	golangci-lint run --timeout=3m ./...
+
+verify: verify-gocilint
 
 all: clean vendor build run
 .PHONY: all
@@ -22,6 +34,17 @@ run-with-external-etcd:
 	hack/start-multicluster-controlplane.sh false
 .PHONY: run-with-external-etcd
 
+build-bin-release:
+	$(rm -rf bin)
+	$(mkdir -p bin)
+	GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane ./cmd/main.go && tar -czf bin/multicluster_controlplane_darwin_amd64.tar.gz LICENSE -C bin/ multicluster-controlplane
+	GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane ./cmd/main.go && tar -czf bin/multicluster_controlplane_darwin_arm64.tar.gz LICENSE -C bin/ multicluster-controlplane
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane ./cmd/main.go && tar -czf bin/multicluster_controlplane_linux_amd64.tar.gz LICENSE -C bin/ multicluster-controlplane
+	GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane ./cmd/main.go && tar -czf bin/multicluster_controlplane_linux_arm64.tar.gz LICENSE -C bin/ multicluster-controlplane
+	GOOS=linux GOARCH=ppc64le go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane ./cmd/main.go && tar -czf bin/multicluster_controlplane_linux_ppc64le.tar.gz LICENSE -C bin/ multicluster-controlplane
+	GOOS=linux GOARCH=s390x go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane ./cmd/main.go && tar -czf bin/multicluster_controlplane_linux_s390x.tar.gz LICENSE -C bin/ multicluster-controlplane
+	GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane.exe ./cmd/main.go && zip -q bin/multicluster_controlplane_windows_amd64.zip LICENSE -j bin/multicluster-controlplane.exe
+
 build: 
 	$(shell if [ ! -e $(BINARYDIR) ];then mkdir -p $(BINARYDIR); fi)
 	go build -o bin/multicluster-controlplane cmd/main.go 
@@ -31,7 +54,7 @@ image:
 	docker build -f Dockerfile -t $(IMAGE_NAME) .
 
 clean:
-	rm -rf bin .ocmconfig
+	rm -rf bin .ocmconfig vendor
 .PHONY: clean
 
 vendor: 

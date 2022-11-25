@@ -1,0 +1,21 @@
+#file extensions to ignore on top of .gitignore
+.copyrightignore
+vendor
+*.yaml
+*.yml
+hack/lib/etcd.sh
+hack/lib/version.sh
+config/helpers/bootstrap.go
+pkg/apiserver/apiextensions.go
+pkg/apiserver/options/admission.go
+pkg/apiserver/options/authentication.go
+pkg/apiserver/options/authorization.go
+pkg/apiserver/options/embeddedetcd.go
+pkg/apiserver/options/options.go
+pkg/apiserver/options/serving.go
+pkg/controllers/kubecontroller/bootstrap.go
+pkg/controllers/kubecontroller/import_known_versions.go
+pkg/controllers/kubecontroller/options/csrsigningcontroller.go
+pkg/controllers/kubecontroller/options/garbagecollectorcontroller.go
+pkg/controllers/kubecontroller/options/namespacecontroller.go
+pkg/etcd/etcd.go

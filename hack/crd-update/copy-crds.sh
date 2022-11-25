@@ -1,3 +1,4 @@
+# Copyright Contributors to the Open Cluster Management project
 #!/bin/bash
 
 source "$(dirname "${BASH_SOURCE}")/init.sh"

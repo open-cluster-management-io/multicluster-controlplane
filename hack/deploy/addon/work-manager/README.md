@@ -1,3 +1,4 @@
+[comment]: # ( Copyright Contributors to the Open Cluster Management project )
 # Install work-manager add-on 
 
 1. Install manifests on the standalone cluster
