@@ -1,0 +1,17 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: multicluster-controlplane
+  labels:
+    component: multicluster-controlplane
+spec:
+  host: ""
+  tls:
+    termination: passthrough
+  to:
+    kind: Service
+    name: multicluster-controlplane
+    weight: 100
+  wildcardPolicy: None
+status:
+  ingress: []

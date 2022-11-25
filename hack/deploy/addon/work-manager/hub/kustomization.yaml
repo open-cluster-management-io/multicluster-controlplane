@@ -1,0 +1,4 @@
+resources:
+- crds
+- clustermanagementaddon
+- agent-clusterrole.yaml
