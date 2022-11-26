@@ -15,6 +15,8 @@ RUN GOOS=${OS} \
 
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+RUN mkdir /var/run/kubernetes && chmod -R 777 /var/run/kubernetes
+
 ENV USER_UID=10001
 
 COPY --from=builder /go/src/open-cluster-management.io/multicluster-controlplane/bin/multicluster-controlplane /

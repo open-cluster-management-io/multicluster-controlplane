@@ -213,6 +213,7 @@ function start_apiserver {
     --secure-port="${API_SECURE_PORT}" \
     --tls-cert-file="${CERT_DIR}/serving-kube-apiserver.crt" \
     --tls-private-key-file="${CERT_DIR}/serving-kube-apiserver.key" \
+    --cert-dir="${CERT_DIR}"
     --storage-backend="${STORAGE_BACKEND}" \
     --feature-gates="${FEATURE_GATES}" \
     --enable-embedded-etcd="${ENABLE_EMBEDDED_ETCD}" \
