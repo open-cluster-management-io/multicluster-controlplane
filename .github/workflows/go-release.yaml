@@ -1,4 +1,3 @@
-# Copyright Contributors to the Open Cluster Management project
 name: GoRelease
 
 on:
@@ -9,7 +8,7 @@ env:
   # Common versions
   GO_VERSION: '1.19'
   GO_REQUIRED_MIN_VERSION: ''
-  GOPATH: '/home/runner/work/multicluster-controlplane/go'
+  GOPATH: '/home/runner/work/multicluster-controlplane/multicluster-controlplane/go'
   GITHUB_REF: ${{ github.ref }}
 
 defaults:
@@ -36,8 +35,8 @@ jobs:
     outputs:
       MAJOR_RELEASE_VERSION: ${{ env.MAJOR_RELEASE_VERSION }}
       RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
-  images:
-    name: images
+  image:
+    name: image
     runs-on: ubuntu-latest
     needs: [ env ]
     strategy:
@@ -50,18 +49,18 @@ jobs:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
       - name: install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: install imagebuilder
         run: go install github.com/openshift/imagebuilder/cmd/imagebuilder@v1.2.1
       - name: pull base image
         run: docker pull registry.access.redhat.com/ubi8/ubi-minimal:latest --platform=linux/${{ matrix.arch }}
-      - name: images
+      - name: image
         run: |
           IMAGE_TAG=${{ needs.env.outputs.RELEASE_VERSION }}-${{ matrix.arch }} \
           IMAGE_BUILD_EXTRA_FLAGS="--build-arg OS=linux --build-arg ARCH=${{ matrix.arch }}" \
-            make images
+            make image
       - name: push
         run: |
           echo ${{ secrets.DOCKER_PASSWORD }} | docker login quay.io --username ${{ secrets.DOCKER_USER }} --password-stdin
@@ -69,7 +68,7 @@ jobs:
   image-manifest:
     name: image manifest
     runs-on: ubuntu-latest
-    needs: [ env, images ]
+    needs: [ env, image ]
     steps:
       - name: checkout code
         uses: actions/checkout@v2
@@ -91,8 +90,8 @@ jobs:
       - name: push
         run: |
           docker manifest push quay.io/open-cluster-management/multicluster-controlplane:${{ needs.env.outputs.RELEASE_VERSION }}
-  release:
-    name: release
+  release-image:
+    name: Release Image
     runs-on: ubuntu-latest
     needs: [ env, image-manifest ]
     steps:
@@ -104,7 +103,7 @@ jobs:
       - name: generate changelog
         run: |
           echo "# Controlplane ${{ needs.env.outputs.RELEASE_VERSION }}" > /home/runner/work/changelog.txt
-          echo "- See the [CHANGELOG](https://github.com/open-cluster-management-io/OCM/blob/standalone-controlplane/CHANGELOG/CHANGELOG-${{ needs.env.outputs.MAJOR_RELEASE_VERSION }}.md) for more details." >> /home/runner/work/changelog.txt
+          echo "- See the [CHANGELOG](https://github.com/open-cluster-management-io/multicluster-controlplane/CHANGELOG/CHANGELOG-${{ needs.env.outputs.MAJOR_RELEASE_VERSION }}.md) for more details." >> /home/runner/work/changelog.txt
           echo "- The released image is quay.io/open-cluster-management/multicluster-controlplane:${{ needs.env.outputs.RELEASE_VERSION }}" >> /home/runner/work/changelog.txt
       - name: publish release
         uses: softprops/action-gh-release@v0.1.5
@@ -112,3 +111,38 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           body_path: /home/runner/work/changelog.txt
+
+  release-binary:
+    name: Release Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+      - name: generate changelog
+        run: |
+          echo "# Controlplane ${{ needs.env.outputs.RELEASE_VERSION }}" > /home/runner/work/changelog.txt
+          echo "- See the [CHANGELOG](https://github.com/open-cluster-management-io/multicluster-controlplane/CHANGELOG/CHANGELOG-${{ needs.env.outputs.MAJOR_RELEASE_VERSION }}.md) for more details." >> /home/runner/work/changelog.txt
+          echo "- The released image is quay.io/open-cluster-management/multicluster-controlplane:${{ needs.env.outputs.RELEASE_VERSION }}" >> /home/runner/work/changelog.txt
+      - name: Build binaries
+        run: |
+          make vendor && make build-bin-release
+      - name: Release
+        uses: softprops/action-gh-release@v0.1.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          body_path: /home/runner/work/changelog.txt
+          files: |
+            bin/multicluster_controlplane_darwin_amd64.tar.gz
+            bin/multicluster_controlplane_darwin_arm64.tar.gz
+            bin/multicluster_controlplane_linux_amd64.tar.gz
+            bin/multicluster_controlplane_linux_arm64.tar.gz
+            bin/multicluster_controlplane_linux_ppc64le.tar.gz
+            bin/multicluster_controlplane_linux_s390x.tar.gz
+            bin/multicluster_controlplane_windows_amd64.zip
+          draft: false
+          prerelease: false

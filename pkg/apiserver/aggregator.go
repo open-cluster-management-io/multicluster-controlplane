@@ -1,3 +1,4 @@
+// Copyright Contributors to the Open Cluster Management project
 package apiserver
 
 import (
@@ -6,8 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-
-	"k8s.io/klog/v2"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -27,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 	v1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	v1helper "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1/helper"
 	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
@@ -162,7 +162,10 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 	err = aggregatorServer.GenericAPIServer.AddPostStartHook("kube-controller", func(context genericapiserver.PostStartHookContext) error {
 		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
 		go func() {
-			kubecontroller.RunKubeControllers(controllerConfig, clientCert, clientKey)
+			err := kubecontroller.RunKubeControllers(controllerConfig, clientCert, clientKey)
+			if err != nil {
+				klog.Errorf("run kube controller error: %v", err)
+			}
 			klog.Infof("Finished bootstrapping kube controllers")
 		}()
 		return nil

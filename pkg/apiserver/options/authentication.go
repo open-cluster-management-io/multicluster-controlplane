@@ -345,7 +345,10 @@ func (o *BuiltInAuthenticationOptions) AddFlags(fs *pflag.FlagSet) {
 		fs.StringSliceVar(&o.APIAudiences, "service-account-api-audiences", o.APIAudiences, ""+
 			"Identifiers of the API. The service account token authenticator will validate that "+
 			"tokens used against the API are bound to at least one of these audiences.")
-		fs.MarkDeprecated("service-account-api-audiences", "Use --api-audiences")
+		err := fs.MarkDeprecated("service-account-api-audiences", "Use --api-audiences")
+		if err != nil {
+			klog.Errorf("mark deprecated error: %v", err)
+		}
 
 		fs.DurationVar(&o.ServiceAccounts.MaxExpiration, "service-account-max-token-expiration", o.ServiceAccounts.MaxExpiration, ""+
 			"The maximum validity duration of a token created by the service account token issuer. If an otherwise valid "+
