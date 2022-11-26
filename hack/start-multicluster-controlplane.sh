@@ -5,8 +5,11 @@
 #     Example 2: hack/start-multicluster-controlplane.sh false
 
 KUBE_ROOT=$(pwd)
-# export SERVING_IP=$(ifconfig en0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*') # ***en0 for macOS***
-# export SERVING_IP=$(ifconfig eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*') # ***eth0 for Linux***
+SERVING_IP=$(ifconfig eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
+if [[ "$(uname)" == "Darwin" ]]; then
+    SERVING_IP=$(ifconfig en0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
+fi
+
 if [ ! $SERVING_IP ] ; then
     echo "SERVING_IP should be set"
     exit 1
