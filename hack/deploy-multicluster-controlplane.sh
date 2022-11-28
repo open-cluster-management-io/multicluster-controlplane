@@ -7,12 +7,12 @@
 KUBECTL=oc
 KUSTOMIZE=kustomize
 if [ ! $KUBECTL >& /dev/null ] ; then
-      echo "Failed to run $KUBECTL. Please ensure $KUBECTL is installed"
-  exit 1
+    echo "Failed to run $KUBECTL. Please ensure $KUBECTL is installed"
+    exit 1
 fi
 if [ ! $KUSTOMIZE >& /dev/null ] ; then
-      echo "Failed to run $KUSTOMIZE. Please ensure $KUSTOMIZE is installed"
-  exit 1
+    echo "Failed to run $KUSTOMIZE. Please ensure $KUSTOMIZE is installed"
+    exit 1
 fi
 
 HUB_NAME=${HUB_NAME:-"multicluster-controlplane"}
