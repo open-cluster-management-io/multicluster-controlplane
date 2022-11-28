@@ -34,7 +34,7 @@ import (
 	confighelpers "open-cluster-management.io/multicluster-controlplane/config/helpers"
 )
 
-var HubNameSpace = "open-cluster-management-hub"
+var HubNamespace = "open-cluster-management-hub"
 var HubSA = "hub-sa"
 
 //go:embed *.yaml
