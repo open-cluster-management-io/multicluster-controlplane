@@ -31,7 +31,6 @@ TYPE_SPEED=40
 DEMO_PROMPT="${GREEN}➜ ${CYAN}\W ${COLOR_RESET}"
 ROOT_DIR="$(pwd)"
 number=${1:-$1}
-export IMAGE_NAME="quay.io/clyang82/controlplane:latest"
 
 # this is needed for the controlplane deploy
 echo "* Testing connection"
@@ -100,29 +99,18 @@ done
 p "deploy the global hub in default namespace"
 rm -rf multicluster-global-hub-lite
 git clone git@github.com:clyang82/multicluster-global-hub-lite.git
-pei "oc apply -k multicluster-global-hub-lite/deploy/server -n default"
+pei "cd multicluster-global-hub-lite && make deploy && cd .."
 
 for i in $(seq 1 "${number}"); do
 
   namespace=multicluster-controlplane-$i
   p "deploy syncer into namespace ${namespace}"
-  SECRETNAME=`oc get sa multicluster-global-hub-apiserver-sa -ojsonpath="{.secrets[0].name}" -n default`
-  TOKEN=`oc get secret $SECRETNAME -n default -ojsonpath="{.data.token}" | base64 -d`
-  APISERVER=`oc get route multicluster-global-hub-apiserver -ojsonpath="{.spec.host}" -n default`
-  oc --kubeconfig /tmp/kubeconfig config set-credentials apiserver-user --token=$TOKEN
-  oc --kubeconfig /tmp/kubeconfig config set-cluster multicluster-global-hub-apiserver --server=https://$APISERVER --insecure-skip-tls-verify=true
-  oc --kubeconfig /tmp/kubeconfig config set-context global-hub-apiserver --user=apiserver-user --cluster=multicluster-global-hub-apiserver
-  oc --kubeconfig /tmp/kubeconfig config use-context global-hub-apiserver
-  oc create secret generic multicluster-global-hub-kubeconfig --from-file=kubeconfig=/tmp/kubeconfig -n ${namespace}
-  # temporarily to apply policy crds into standalone controlplane
-  CERTS_DIR=${ROOT_DIR}/../deploy/cert-${namespace}
-  oc --kubeconfig ${CERTS_DIR}/kubeconfig apply -f multicluster-global-hub-lite/server/manifests/0000_00_policy.open-cluster-management.io_policies.crd.yaml
-
+  oc create secret generic multicluster-global-hub-kubeconfig --from-file=kubeconfig=multicluster-global-hub-lite/deploy/server/certs/kube-aggregator.kubeconfig -n ${namespace}
   pei "oc apply -n ${namespace} -k multicluster-global-hub-lite/deploy/syncer"
 
 done
 
-oc get secret -oyaml multicluster-global-hub-kubeconfig -ojsonpath="{.data.kubeconfig}" | base64 -d > /tmp/global-hub-kubeconfig
+cp multicluster-global-hub-lite/deploy/server/certs/kube-aggregator.kubeconfig /tmp/global-hub-kubeconfig
 p "Use oc --kubeconfig /tmp/global-hub-kubeconfig to access the global hub"
 
 p ""

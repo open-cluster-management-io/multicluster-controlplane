@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: controlplane
-        image: quay.io/open-cluster-management/controlplane
+        image: quay.io/open-cluster-management/multicluster-controlplane
         imagePullPolicy: Always
         args:
           - "/multicluster-controlplane"

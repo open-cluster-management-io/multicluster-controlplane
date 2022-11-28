@@ -29,8 +29,8 @@ resources:
 - route.yaml
 
 images:
-- name: quay.io/open-cluster-management/controlplane
-  newName: quay.io/open-cluster-management/controlplane
+- name: quay.io/open-cluster-management/multicluster-controlplane
+  newName: quay.io/open-cluster-management/multicluster-controlplane
   newTag: latest
 
 secretGenerator:
