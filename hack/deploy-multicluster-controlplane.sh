@@ -15,7 +15,7 @@ if [ ! $KUSTOMIZE >& /dev/null ] ; then
 fi
 
 HUB_NAME=${HUB_NAME:-"multicluster-controlplane"}
-IMAGE_NAME=${IMAGE_NAME:-"quay.io/open-cluster-management/controlplane"}
+IMAGE_NAME=${IMAGE_NAME:-"quay.io/open-cluster-management/multicluster-controlplane"}
 
 # this is needed for the controlplane deploy
 echo "* Testing connection"

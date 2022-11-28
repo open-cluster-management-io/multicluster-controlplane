@@ -30,7 +30,6 @@ TYPE_SPEED=40
 DEMO_PROMPT="${GREEN}➜ ${CYAN}\W ${COLOR_RESET}"
 ROOT_DIR="$(pwd)"
 number=${1:-$1}
-export IMAGE_NAME="quay.io/clyang82/controlplane:latest"
 
 # this is needed for the controlplane deploy
 echo "* Testing connection"
@@ -106,10 +105,6 @@ for i in $(seq 1 "${number}"); do
   namespace=multicluster-controlplane-$i
   p "deploy syncer into namespace ${namespace}"
   oc create secret generic multicluster-global-hub-kubeconfig --from-file=kubeconfig=multicluster-global-hub-lite/deploy/server/certs/kube-aggregator.kubeconfig -n ${namespace}
-  # temporarily to apply policy crds into standalone controlplane
-  CERTS_DIR=${ROOT_DIR}/../deploy/cert-${namespace}
-  oc --kubeconfig ${CERTS_DIR}/kubeconfig apply -f multicluster-global-hub-lite/server/manifests/0000_00_policy.open-cluster-management.io_policies.crd.yaml
-
   pei "oc apply -n ${namespace} -k multicluster-global-hub-lite/deploy/syncer"
 
 done
