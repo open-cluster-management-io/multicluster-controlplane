@@ -227,6 +227,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 	go clusterInformers.Start(ctx.Done())
 	go workInformers.Start(ctx.Done())
 	go addOnInformers.Start(ctx.Done())
+	go kubeInfomers.Start(ctx.Done())
 
 	go managedClusterController.Run(ctx, 1)
 	go taintController.Run(ctx, 1)

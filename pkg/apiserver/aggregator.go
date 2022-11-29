@@ -232,7 +232,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 		return nil, err
 	}
 
-	// Add PostStartHook to install registration controllers
+	// Add PostStartHook to install ocm controllers
 	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-controllers", func(context genericapiserver.PostStartHookContext) error {
 
 		// Start controllers
