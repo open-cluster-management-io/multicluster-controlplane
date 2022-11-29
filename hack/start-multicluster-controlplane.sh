@@ -1,4 +1,3 @@
-# Copyright Contributors to the Open Cluster Management project
 #!/usr/bin/env bash
 # This script starts ocm control plane on local.
 #     Example 1: hack/start-multicluster-controlplane.sh

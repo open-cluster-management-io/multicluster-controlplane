@@ -3,6 +3,7 @@
 vendor
 *.yaml
 *.yml
+*.sh
 hack/lib/etcd.sh
 hack/lib/version.sh
 config/helpers/bootstrap.go
