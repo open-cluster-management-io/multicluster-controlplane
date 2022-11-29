@@ -19,3 +19,6 @@ bin/
 # IDE config files
 .dead/
 .vscode/
+.idea/
+hack/deploy/cert-*
+hack/deploy/controlplane/cert
