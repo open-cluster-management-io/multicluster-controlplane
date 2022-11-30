@@ -52,7 +52,7 @@ const (
 	ExternalLoops
 )
 
-func RunKubeControllers(cfg *restclient.Config, clientCert, clientKey string) error {
+func RunKubeControllers(cfg *restclient.Config, sharedInformers informers.SharedInformerFactory, clientCert, clientKey string) error {
 	s, err := options.NewKubeControllerManagerOptions()
 	if err != nil {
 		klog.Fatalf("unable to initialize kube options: %v", err)
@@ -67,7 +67,7 @@ func RunKubeControllers(cfg *restclient.Config, clientCert, clientKey string) er
 	}
 
 	completed := config.Complete()
-	return Run(completed, wait.NeverStop)
+	return Run(completed, sharedInformers, wait.NeverStop)
 }
 
 // ResyncPeriod returns a function which generates a duration each time it is
@@ -81,7 +81,7 @@ func ResyncPeriod(c *config.CompletedConfig) func() time.Duration {
 }
 
 // Run runs the KubeControllerManagerOptions.
-func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
+func Run(c *config.CompletedConfig, sharedInformers informers.SharedInformerFactory, stopCh <-chan struct{}) error {
 	// Start events processing pipeline.
 	c.EventBroadcaster.StartStructuredLogging(0)
 	c.EventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: c.Client.CoreV1().Events("")})
@@ -103,7 +103,7 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	clientBuilder, rootClientBuilder := createClientBuilders(c)
 
 	run := func(ctx context.Context, initializersFunc ControllerInitializersFunc) {
-		controllerContext, err := CreateControllerContext(c, rootClientBuilder, clientBuilder, ctx.Done())
+		controllerContext, err := CreateControllerContext(c, rootClientBuilder, clientBuilder, sharedInformers, ctx.Done())
 		if err != nil {
 			klog.Fatalf("error building controller context: %v", err)
 		}
@@ -224,9 +224,8 @@ func GetAvailableResources(clientBuilder clientbuilder.ControllerClientBuilder) 
 // CreateControllerContext creates a context struct containing references to resources needed by the
 // controllers such as the cloud provider and clientBuilder. rootClientBuilder is only used for
 // the shared-informers client and token controller.
-func CreateControllerContext(s *config.CompletedConfig, rootClientBuilder, clientBuilder clientbuilder.ControllerClientBuilder, stop <-chan struct{}) (ControllerContext, error) {
-	versionedClient := rootClientBuilder.ClientOrDie("shared-informers")
-	sharedInformers := informers.NewSharedInformerFactory(versionedClient, ResyncPeriod(s)())
+func CreateControllerContext(s *config.CompletedConfig, rootClientBuilder, clientBuilder clientbuilder.ControllerClientBuilder,
+	sharedInformers informers.SharedInformerFactory, stop <-chan struct{}) (ControllerContext, error) {
 
 	metadataClient := metadata.NewForConfigOrDie(rootClientBuilder.ConfigOrDie("metadata-informers"))
 	metadataInformers := metadatainformer.NewSharedInformerFactory(metadataClient, ResyncPeriod(s)())

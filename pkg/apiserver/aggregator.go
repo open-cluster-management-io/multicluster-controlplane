@@ -162,7 +162,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 	err = aggregatorServer.GenericAPIServer.AddPostStartHook("kube-controller", func(context genericapiserver.PostStartHookContext) error {
 		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
 		go func() {
-			err := kubecontroller.RunKubeControllers(controllerConfig, clientCert, clientKey)
+			err := kubecontroller.RunKubeControllers(controllerConfig, aggregatorConfig.GenericConfig.SharedInformerFactory, clientCert, clientKey)
 			if err != nil {
 				klog.Errorf("run kube controller error: %v", err)
 			}
