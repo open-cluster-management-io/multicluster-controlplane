@@ -11,11 +11,11 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.etcd.io/etcd/server/v3 v3.5.4
 	k8s.io/api v0.25.4
-	k8s.io/apiextensions-apiserver v0.24.2
+	k8s.io/apiextensions-apiserver v0.25.4
 	k8s.io/apimachinery v0.25.4
 	k8s.io/apiserver v0.25.4
 	k8s.io/client-go v0.25.4
-	k8s.io/cluster-bootstrap v0.0.0
+	k8s.io/cluster-bootstrap v0.25.4
 	k8s.io/component-base v0.25.4
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.80.1
@@ -52,7 +52,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/emicklei/go-restful v2.9.5+incompatible // indirect
 	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
@@ -213,7 +212,6 @@ exclude go.opentelemetry.io/otel/internal/metric v0.27.0
 // replace these repos because of imported k8s.io/kubernetes
 replace (
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.25.4
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.25.4
 	k8s.io/code-generator => k8s.io/code-generator v0.25.4
 	k8s.io/component-helpers => k8s.io/component-helpers v0.25.4
 	k8s.io/controller-manager => k8s.io/controller-manager v0.25.4
