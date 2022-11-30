@@ -14,16 +14,21 @@
 
 # Dependency directories (remove the comment below to include it)
 vendor/
-./bin/
+bin/
+!test/bin/
 
 # IDE config files
 .dead/
 .vscode/
 .idea/
+
+# Cert
 hack/deploy/cert-*
 hack/deploy/controlplane/cert
+
 .ocmconfig
 
-hack/deploy/cert-*
-test/resources/controlplane/cert
+# Test
 test/resources/kubeconfig
+test/resources/controlplane
+!test/resources/controlplane/service-template.yaml

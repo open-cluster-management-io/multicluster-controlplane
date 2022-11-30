@@ -53,7 +53,7 @@ for i in $(seq 1 "${number}"); do
   # modify the deployment/service to expose a local controlplane api-server
   deploy_dir=$project_dir/test/resources/controlplane
   cp $project_dir/hack/deploy/controlplane/deployment.yaml $deploy_dir/deployment.yaml
-  sed -i 's,API_HOST,'${external_host_ip}',' $deploy_dir/deployment.yaml
+  sed -i 's/API_HOST/'${external_host_ip}'/' $deploy_dir/deployment.yaml
   grep -v "route.yaml" $project_dir/hack/deploy/controlplane/kustomization.yaml > $deploy_dir/kustomization.yaml
   sed -e 's/'"nodePort: 30080"/"nodePort: $external_host_port"'/' $deploy_dir/service-template.yaml > $deploy_dir/service.yaml
   # deploy the controplane

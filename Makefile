@@ -1,7 +1,7 @@
 # Copyright Contributors to the Open Cluster Management project
 BINARYDIR := bin
 
-KUBECTL?=oc
+KUBECTL?=kubectl
 KUSTOMIZE?=kustomize
 
 HUB_NAME?=multicluster-controlplane
@@ -99,3 +99,22 @@ deploy-policy-addon:
 
 deploy-all: deploy deploy-work-manager-addon deploy-managed-serviceaccount-addon deploy-policy-addon
 
+# test
+export CONTROLPLANE_NUMBER ?= 2
+export VERBOSE ?= 5
+
+setup-dep:
+	./test/bin/dep.sh
+.PHONY: setup-dep
+
+setup-controlplane: setup-dep
+	./test/bin/setup.sh
+.PHONY: setup-controlplane
+
+cleanup-controlplane:
+	./test/bin/cleanup.sh
+.PHONY: cleanup-controlplane
+
+test-e2e:
+	./test/bin/test-e2e.sh -v $(VERBOSE)
+.PHONY: test-e2e

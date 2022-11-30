@@ -19,10 +19,3 @@ rm -r $project_dir/test/resources/controlplane/deployment.yaml
 rm -r $project_dir/test/resources/controlplane/kustomization.yaml
 rm -r $project_dir/test/resources/controlplane/service.yaml
 rm -r $project_dir/test/resources/kubeconfig
-
-
-
-
-
-
-
