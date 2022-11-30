@@ -14,7 +14,7 @@
 
 # Dependency directories (remove the comment below to include it)
 vendor/
-bin/
+./bin/
 
 # IDE config files
 .dead/
@@ -23,3 +23,7 @@ bin/
 hack/deploy/cert-*
 hack/deploy/controlplane/cert
 .ocmconfig
+
+hack/deploy/cert-*
+test/resources/controlplane/cert
+test/resources/kubeconfig
