@@ -162,7 +162,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 	err = aggregatorServer.GenericAPIServer.AddPostStartHook("kube-controller", func(context genericapiserver.PostStartHookContext) error {
 		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
 		go func() {
-			err := kubecontroller.RunKubeControllers(controllerConfig, clientCert, clientKey)
+			err := kubecontroller.RunKubeControllers(controllerConfig, aggregatorConfig.GenericConfig.SharedInformerFactory, clientCert, clientKey)
 			if err != nil {
 				klog.Errorf("run kube controller error: %v", err)
 			}
@@ -232,36 +232,23 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 		return nil, err
 	}
 
-	// Add PostStartHook to install registration controllers
-	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-registration-controllers", func(context genericapiserver.PostStartHookContext) error {
+	// Add PostStartHook to install ocm controllers
+	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-controllers", func(context genericapiserver.PostStartHookContext) error {
+
 		// Start controllers
 		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
 		controllerConfig.ContentType = "application/json"
 
 		go func() {
-			if err := ocmcontroller.InstallRegistraionControllers(goContext(context), controllerConfig); err != nil {
-				klog.Errorf("failed to bootstrap ocm registration controllers: %v", err)
+			if err := ocmcontroller.InstallOCMControllers(
+				goContext(context),
+				controllerConfig,
+				kubeClient,
+				aggregatorConfig.GenericConfig.SharedInformerFactory,
+			); err != nil {
+				klog.Errorf("failed to bootstrap ocm controllers: %v", err)
 			} else {
-				klog.Infof("Finished bootstrapping ocm registration controllers")
-			}
-		}()
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Add PostStartHook to install placement controllers
-	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-placement-controllers", func(context genericapiserver.PostStartHookContext) error {
-		// Start controllers
-		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
-		controllerConfig.ContentType = "application/json"
-
-		go func() {
-			if err := ocmcontroller.InstallPlacementControllers(goContext(context), controllerConfig); err != nil {
-				klog.Errorf("failed to bootstrap ocm placement controllers: %v", err)
-			} else {
-				klog.Infof("Finished bootstrapping ocm placement controllers")
+				klog.Infof("Finished bootstrapping ocm controllers")
 			}
 		}()
 		return nil

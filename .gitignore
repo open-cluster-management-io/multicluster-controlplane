@@ -22,3 +22,4 @@ bin/
 .idea/
 hack/deploy/cert-*
 hack/deploy/controlplane/cert
+.ocmconfig

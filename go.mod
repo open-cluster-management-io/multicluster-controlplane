@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/openshift/library-go v0.0.0-20220713145611-ca167a8bd342
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	go.etcd.io/etcd/server/v3 v3.5.4
@@ -92,7 +93,6 @@ require (
 	github.com/openshift/api v0.0.0-20220525145417-ee5b62754c68 // indirect
 	github.com/openshift/client-go v0.0.0-20220525160904-9e1acff93e4a // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/profile v1.3.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
