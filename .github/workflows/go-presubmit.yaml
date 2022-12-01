@@ -11,7 +11,8 @@ env:
   # Common versions
   GO_VERSION: '1.19'
   GO_REQUIRED_MIN_VERSION: ''
-  GOPATH: '/home/runner/work/multicluster-controlplane/multicluster-controlplane/go'
+  GOPATH: '/home/runner/work/multicluster-controlplane/go'
+
 defaults:
   run:
     working-directory: go/src/open-cluster-management.io/multicluster-controlplane
@@ -64,3 +65,35 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: build
         run: make vendor && make build
+  
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          path: go/src/open-cluster-management.io/multicluster-controlplane
+      - name: install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: get image label
+        id: vars
+        run: |
+          echo "::set-output name=label::$(git rev-parse --short ${{ github.sha }})"
+      - name: build image
+        run: make image
+        env:
+          IMAGE_NAME: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}
+      - name: setup controlplanes on KinD cluster
+        run: |
+          make setup-controlplane
+        env: 
+          CONTROLPLANE_IMAGE: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}
+      - name: run e2e test
+        run: |
+          make test-e2e
+        env:
+          VERBOSE: 6
