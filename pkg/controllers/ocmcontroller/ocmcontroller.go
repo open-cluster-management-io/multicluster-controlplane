@@ -254,7 +254,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 	return nil
 }
 
-func InstallOCMAddonManager(ctx context.Context, kubeConfig *rest.Config, kubeClient kubernetes.Interface, kubeInfomers kubeinformers.SharedInformerFactory) error {
+func InstallOCMAddonManager(ctx context.Context, kubeConfig *rest.Config, kubeClient kubernetes.Interface) error {
 	//TODO: pass it from parameter
 	addonAgentImageName := "quay.io/open-cluster-management/managed-serviceaccount:latest"
 	agentInstallAll := true
@@ -267,8 +267,6 @@ func InstallOCMAddonManager(ctx context.Context, kubeConfig *rest.Config, kubeCl
 	if err != nil {
 		return err
 	}
-	kubeInfomers.WaitForCacheSync(ctx.Done())
-	// cache.WaitForCacheSync(ctx.Done(), kubeInfomers.Certificates().V1().CertificateSigningRequests().Informer().HasSynced)
 	// TODO: support standalone controlplane
 	// hubNamespace := os.Getenv("NAMESPACE")
 	// if len(hubNamespace) == 0 {
