@@ -176,6 +176,7 @@ func validateTokenRequest(options *ServerRunOptions) []error {
 func (e *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 	e.SecureServing.AddFlags(fs)
 	e.Etcd.AddFlags(fs)
+	e.Features.AddFlags(fs)
 	e.Authentication.AddFlags(fs)
 	e.Authorization.AddFlags(fs)
 	e.Admission.AddFlags(fs)
