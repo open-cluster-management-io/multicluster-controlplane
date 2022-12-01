@@ -45,6 +45,8 @@ var baseCRD = []string{
 	"0000_02_clusters.open-cluster-management.io_placements.crd.yaml",
 	"0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml",
 	"0000_05_clusters.open-cluster-management.io_addonplacementscores.crd.yaml",
+	// managed serviceaccount addon
+	"0000_06_authentication.open-cluster-management.io_managedserviceaccounts.crd.yaml",
 }
 
 func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
