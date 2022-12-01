@@ -23,16 +23,12 @@ kube::util::test_openssl_installed
 kube::util::ensure-cfssl
 
 printf "\033[0;32m%s\n\033[0m" "## Create KinD clusters"
-kind create cluster --name $hosting_cluster --image "kindest/node:v1.24.7" &
+check_dir $kubeconfig_dir
+kind create cluster --name $hosting_cluster --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig_dir/$hosting_cluster &
 for i in $(seq 1 "${number}"); do
-  kind create cluster --name controlplane$i-mc1 --image "kindest/node:v1.24.7" &
+  kind create cluster --name controlplane$i-mc1 --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig_dir/controlplane$i-mc1 &
 done
 wait
-check_dir $kubeconfig_dir
-kind get kubeconfig --name $hosting_cluster > $kubeconfig_dir/$hosting_cluster
-for i in $(seq 1 "${number}"); do
-  kind get kubeconfig --name controlplane$i-mc1 > $kubeconfig_dir/controlplane$i-mc1
-done
 
 external_host_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${hosting_cluster}-control-plane)
 export KUBECONFIG=$kubeconfig_dir/$hosting_cluster
@@ -59,6 +55,7 @@ for i in $(seq 1 "${number}"); do
   # deploy the controplane
   cd $deploy_dir
   $KUSTOMIZE edit set namespace $namespace 
+  echo "## Using the Controlplane Image: $controlplane_image"
   $KUSTOMIZE edit set image quay.io/open-cluster-management/controlplane=$controlplane_image
   $KUSTOMIZE build $deploy_dir | $KUBECTL apply -f -
 
