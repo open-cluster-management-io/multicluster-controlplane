@@ -43,6 +43,7 @@ spec:
           - "--service-cluster-ip-range=10.0.0.0/24"
           - "--service-account-issuer=https://kubernetes.default.svc"
           - "--external-hostname=API_HOST"
+          - "--profiling=false"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
