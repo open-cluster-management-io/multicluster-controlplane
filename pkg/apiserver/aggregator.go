@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	genericfeatures "k8s.io/apiserver/pkg/features"
@@ -24,6 +25,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	kubeexternalinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -36,6 +38,7 @@ import (
 	informers "k8s.io/kube-aggregator/pkg/client/informers/externalversions/apiregistration/v1"
 	"k8s.io/kube-aggregator/pkg/controllers/autoregister"
 	"k8s.io/kubernetes/pkg/controlplane/controller/crdregistration"
+	authv1alpha1 "open-cluster-management.io/managed-serviceaccount/api/v1alpha1"
 	"open-cluster-management.io/multicluster-controlplane/pkg/apiserver/options"
 
 	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
@@ -154,7 +157,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			if err != nil {
 				klog.Errorf("run kube controller error: %v", err)
 			}
-			klog.Infof("Finished bootstrapping kube controllers")
+			klog.Infof("finished bootstrapping kube controllers")
 		}()
 		return nil
 	})
@@ -185,7 +188,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			// nolint:nilerr
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		klog.Infof("Finished bootstrapping ocm CRDs")
+		klog.Infof("finished bootstrapping ocm CRDs")
 		return nil
 	})
 	if err != nil {
@@ -212,7 +215,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
-		klog.Infof("Finished bootstrapping ocm hub resources")
+		klog.Infof("finished bootstrapping ocm hub resources")
 
 		return nil
 	})
@@ -236,7 +239,46 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			); err != nil {
 				klog.Errorf("failed to bootstrap ocm controllers: %v", err)
 			} else {
-				klog.Infof("Finished bootstrapping ocm controllers")
+				klog.Infof("finished bootstrapping ocm controllers")
+			}
+		}()
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(authv1alpha1.AddToScheme(scheme))
+
+	// mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	// 	Scheme:           scheme,
+	// 	Port:             9444,
+	// 	LeaderElection:   true,
+	// 	LeaderElectionID: "multicluster-controlplane-manager",
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// Add PostStartHook to install ocm Addon manager
+	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-addon-manager", func(context genericapiserver.PostStartHookContext) error {
+
+		// Start controllers
+		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
+		controllerConfig.ContentType = "application/json"
+
+		go func() {
+			if err := ocmcontroller.InstallOCMAddonManager(
+				goContext(context),
+				controllerConfig,
+				kubeClient,
+				aggregatorConfig.GenericConfig.SharedInformerFactory,
+			); err != nil {
+				klog.Errorf("failed to start ocm addon manager: %v", err)
+			} else {
+				klog.Infof("finished starting ocm addon manager")
 			}
 		}()
 		return nil

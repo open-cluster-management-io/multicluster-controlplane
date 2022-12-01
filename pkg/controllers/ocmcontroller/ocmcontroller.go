@@ -16,6 +16,9 @@ import (
 	"k8s.io/client-go/rest"
 	kubeevents "k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
+	"open-cluster-management.io/addon-framework/pkg/addonfactory"
+	"open-cluster-management.io/addon-framework/pkg/addonmanager"
+	"open-cluster-management.io/addon-framework/pkg/agent"
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
 	clusterv1client "open-cluster-management.io/api/client/cluster/clientset/versioned"
@@ -24,6 +27,8 @@ import (
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned"
 	workv1informers "open-cluster-management.io/api/client/work/informers/externalversions"
 	ocmfeature "open-cluster-management.io/api/feature"
+	"open-cluster-management.io/managed-serviceaccount/pkg/addon/manager"
+	"open-cluster-management.io/managed-serviceaccount/pkg/common"
 	scheduling "open-cluster-management.io/placement/pkg/controllers/scheduling"
 	"open-cluster-management.io/placement/pkg/debugger"
 	"open-cluster-management.io/registration/pkg/features"
@@ -245,6 +250,80 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 	go schedulingController.Run(ctx, 1)
 	go schedulingControllerResync.Run(ctx, 1)
 
+	<-ctx.Done()
+	return nil
+}
+
+func InstallOCMAddonManager(ctx context.Context, kubeConfig *rest.Config, kubeClient kubernetes.Interface, kubeInfomers kubeinformers.SharedInformerFactory) error {
+	//TODO: pass it from parameter
+	addonAgentImageName := "quay.io/open-cluster-management/managed-serviceaccount:latest"
+	agentInstallAll := true
+
+	addonManager, err := addonmanager.New(kubeConfig)
+	if err != nil {
+		return err
+	}
+	addonClient, err := addonclient.NewForConfig(kubeConfig)
+	if err != nil {
+		return err
+	}
+	kubeInfomers.WaitForCacheSync(ctx.Done())
+	// cache.WaitForCacheSync(ctx.Done(), kubeInfomers.Certificates().V1().CertificateSigningRequests().Informer().HasSynced)
+	// TODO: support standalone controlplane
+	// hubNamespace := os.Getenv("NAMESPACE")
+	// if len(hubNamespace) == 0 {
+	// 	inClusterNamespace, err := util.GetInClusterNamespace()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	hubNamespace = inClusterNamespace
+	// }
+
+	// if len(imagePullSecretName) == 0 {
+	// 	imagePullSecretName = os.Getenv("AGENT_IMAGE_PULL_SECRET")
+	// }
+
+	// imagePullSecret := &corev1.Secret{}
+	// if len(imagePullSecretName) != 0 {
+	// 	imagePullSecret, err = kubeClient.CoreV1().Secrets(hubNamespace).Get(
+	// 		context.TODO(),
+	// 		imagePullSecretName,
+	// 		metav1.GetOptions{},
+	// 	)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if imagePullSecret.Type != corev1.SecretTypeDockerConfigJson {
+	// 		return err
+	// 	}
+	// }
+
+	agentFactory := addonfactory.NewAgentAddonFactory(common.AddonName, manager.FS, "manifests/templates").
+		WithConfigGVRs(addonfactory.AddOnDeploymentConfigGVR).
+		WithGetValuesFuncs(
+			manager.GetDefaultValues(addonAgentImageName, nil),
+			addonfactory.GetAddOnDeloymentConfigValues(
+				addonfactory.NewAddOnDeloymentConfigGetter(addonClient),
+				addonfactory.ToAddOnDeloymentConfigValues,
+			),
+		).
+		WithAgentRegistrationOption(manager.NewRegistrationOption(kubeClient))
+
+	if agentInstallAll {
+		agentFactory.WithInstallStrategy(agent.InstallAllStrategy(common.AddonAgentInstallNamespace))
+	}
+
+	agentAddOn, err := agentFactory.BuildTemplateAgentAddon()
+	if err != nil {
+		return err
+	}
+
+	if err := addonManager.AddAgent(agentAddOn); err != nil {
+		return err
+	}
+	if err := addonManager.Start(ctx); err != nil {
+		return err
+	}
 	<-ctx.Done()
 	return nil
 }
