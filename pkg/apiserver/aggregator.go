@@ -69,18 +69,6 @@ func createAggregatorConfig(
 		genericConfig.BuildHandlerChainFunc = genericapiserver.BuildHandlerChainWithStorageVersionPrecondition
 	}
 
-	// override genericConfig.AdmissionControl with kube-aggregator's scheme,
-	// because aggregator apiserver should use its own scheme to convert its own resources.
-	err := commandOptions.Admission.ApplyTo(
-		&genericConfig,
-		externalInformers,
-		genericConfig.LoopbackClientConfig,
-		utilfeature.DefaultFeatureGate,
-		pluginInitializers...)
-	if err != nil {
-		return nil, err
-	}
-
 	// copy the etcd options so we don't mutate originals.
 	etcdOptions := *commandOptions.Etcd
 	etcdOptions.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(genericfeatures.APIListChunking)

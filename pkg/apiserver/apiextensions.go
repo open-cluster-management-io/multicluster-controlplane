@@ -51,18 +51,6 @@ func createAPIExtensionsConfig(
 	genericConfig.PostStartHooks = map[string]genericapiserver.PostStartHookConfigEntry{}
 	genericConfig.RESTOptionsGetter = nil
 
-	// override genericConfig.AdmissionControl with apiextensions' scheme,
-	// because apiextensions apiserver should use its own scheme to convert resources.
-	err := commandOptions.Admission.ApplyTo(
-		&genericConfig,
-		externalInformers,
-		genericConfig.LoopbackClientConfig,
-		utilfeature.DefaultFeatureGate,
-		pluginInitializers...)
-	if err != nil {
-		return nil, err
-	}
-
 	// copy the etcd options so we don't mutate originals.
 	etcdOptions := *commandOptions.Etcd
 	etcdOptions.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(features.APIListChunking)
