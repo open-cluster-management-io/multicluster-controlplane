@@ -640,6 +640,8 @@ github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndr
 github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021/go.mod h1:prYjPmNq4d1NPVmpShWobRqXY3q7Vp+80DqgxxUrUIA=
 github.com/pquerna/cachecontrol v0.1.0 h1:yJMy84ti9h/+OEWa752kBTKv4XC30OtVVHYv/8cTqKc=
 github.com/pquerna/cachecontrol v0.1.0/go.mod h1:NrUG3Z7Rdu85UNR3vm7SOsl1nFIeSiQnrHV5K9mBcUI=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.57.0 h1:dslXhV7NbAFID2fh0ZLMjodbMYuitiJzDEpYNOoyRrg=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.57.0/go.mod h1:tflNO6iwG09icVcOe2VfhC73fmtKSKT1aNXYnVtAumU=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.3/go.mod h1:/TN21ttK/J9q6uSwhBd54HahCDft0ttaMvbicHlPoso=
 github.com/prometheus/client_golang v1.0.0/go.mod h1:db9x61etRT2tGnBNRi70OPL5FsnadC4Ky3P0J6CfImo=
@@ -1453,6 +1455,8 @@ open-cluster-management.io/api v0.9.0 h1:JQidCTMY3RdS0m3UDP24j6ykNpxWJ20LEdNtbxJ
 open-cluster-management.io/api v0.9.0/go.mod h1:+OEARSAl2jIhuLItUcS30UgLA3khmA9ihygLVxzEn+U=
 open-cluster-management.io/clusteradm v0.4.0 h1:UqTgXy7o/Tps1tJNNHbkjVRCFP+4cvn79w7tkoHEvAA=
 open-cluster-management.io/clusteradm v0.4.0/go.mod h1:nodp4RjHy/94guw4eLiYiZzpmk1D5ExXnZogGSHygoA=
+open-cluster-management.io/governance-policy-addon-controller v0.9.0 h1:QtB/nItXmfb2uItNtm1WMoQE8GfLLyqnnry/8ARkJVQ=
+open-cluster-management.io/governance-policy-addon-controller v0.9.0/go.mod h1:vp1Yg8fWFZBD+DHUtsjq1cn1rPoo6k9c+IDX50YwD+I=
 open-cluster-management.io/managed-serviceaccount v0.2.1-0.20221125051317-2ebb47b67877 h1:LD/0xqqYpJtl7ia4CBWg1zuKVoyl/zga3KijRrmTf3I=
 open-cluster-management.io/managed-serviceaccount v0.2.1-0.20221125051317-2ebb47b67877/go.mod h1:XuTtJ373O5rb70sGAZY8SqsjRqio9zXTCtOEG9HFcvU=
 open-cluster-management.io/placement v0.9.0 h1:pLt8iUboxDdL++i0fcrJu/gm0pvdV5vIeJFJSddcs3w=

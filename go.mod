@@ -26,6 +26,7 @@ require (
 	open-cluster-management.io/addon-framework v0.5.0
 	open-cluster-management.io/api v0.9.0
 	open-cluster-management.io/clusteradm v0.4.0
+	open-cluster-management.io/governance-policy-addon-controller v0.9.0
 	open-cluster-management.io/managed-serviceaccount v0.2.1-0.20221125051317-2ebb47b67877
 	open-cluster-management.io/placement v0.9.0
 	open-cluster-management.io/registration v0.9.1-0.20221114013223-9878ed071a3b
@@ -168,6 +169,7 @@ require (
 
 require (
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.57.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect
 	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect

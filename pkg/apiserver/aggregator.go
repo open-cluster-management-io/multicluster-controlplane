@@ -278,7 +278,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			}, goContext(context).Done()); err != nil {
 				klog.Errorf("failed to wait for caches to sync: %v", err)
 			}
-			if err := ocmcontroller.InstallOCMAddonManager(
+			if err := ocmcontroller.InstallManagedClusterAddons(
 				goContext(context),
 				controllerConfig,
 				kubeClient,

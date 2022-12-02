@@ -16,9 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	kubeevents "k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
-	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
-	"open-cluster-management.io/addon-framework/pkg/agent"
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
 	clusterv1client "open-cluster-management.io/api/client/cluster/clientset/versioned"
@@ -27,8 +25,6 @@ import (
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned"
 	workv1informers "open-cluster-management.io/api/client/work/informers/externalversions"
 	ocmfeature "open-cluster-management.io/api/feature"
-	"open-cluster-management.io/managed-serviceaccount/pkg/addon/manager"
-	"open-cluster-management.io/managed-serviceaccount/pkg/common"
 	scheduling "open-cluster-management.io/placement/pkg/controllers/scheduling"
 	"open-cluster-management.io/placement/pkg/debugger"
 	"open-cluster-management.io/registration/pkg/features"
@@ -44,6 +40,7 @@ import (
 	"open-cluster-management.io/registration/pkg/hub/taint"
 
 	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
+	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/ocmcontroller/managedclusteraddons"
 )
 
 var ResyncInterval = 5 * time.Minute
@@ -254,10 +251,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 	return nil
 }
 
-func InstallOCMAddonManager(ctx context.Context, kubeConfig *rest.Config, kubeClient kubernetes.Interface) error {
-	//TODO: pass it from parameter
-	addonAgentImageName := "quay.io/open-cluster-management/managed-serviceaccount:latest"
-	agentInstallAll := true
+func InstallManagedClusterAddons(ctx context.Context, kubeConfig *rest.Config, kubeClient kubernetes.Interface) error {
 
 	addonManager, err := addonmanager.New(kubeConfig)
 	if err != nil {
@@ -267,58 +261,15 @@ func InstallOCMAddonManager(ctx context.Context, kubeConfig *rest.Config, kubeCl
 	if err != nil {
 		return err
 	}
-	// TODO: support standalone controlplane
-	// hubNamespace := os.Getenv("NAMESPACE")
-	// if len(hubNamespace) == 0 {
-	// 	inClusterNamespace, err := util.GetInClusterNamespace()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	hubNamespace = inClusterNamespace
-	// }
 
-	// if len(imagePullSecretName) == 0 {
-	// 	imagePullSecretName = os.Getenv("AGENT_IMAGE_PULL_SECRET")
-	// }
-
-	// imagePullSecret := &corev1.Secret{}
-	// if len(imagePullSecretName) != 0 {
-	// 	imagePullSecret, err = kubeClient.CoreV1().Secrets(hubNamespace).Get(
-	// 		context.TODO(),
-	// 		imagePullSecretName,
-	// 		metav1.GetOptions{},
-	// 	)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if imagePullSecret.Type != corev1.SecretTypeDockerConfigJson {
-	// 		return err
-	// 	}
-	// }
-
-	agentFactory := addonfactory.NewAgentAddonFactory(common.AddonName, manager.FS, "manifests/templates").
-		WithConfigGVRs(addonfactory.AddOnDeploymentConfigGVR).
-		WithGetValuesFuncs(
-			manager.GetDefaultValues(addonAgentImageName, nil),
-			addonfactory.GetAddOnDeloymentConfigValues(
-				addonfactory.NewAddOnDeloymentConfigGetter(addonClient),
-				addonfactory.ToAddOnDeloymentConfigValues,
-			),
-		).
-		WithAgentRegistrationOption(manager.NewRegistrationOption(kubeClient))
-
-	if agentInstallAll {
-		agentFactory.WithInstallStrategy(agent.InstallAllStrategy(common.AddonAgentInstallNamespace))
-	}
-
-	agentAddOn, err := agentFactory.BuildTemplateAgentAddon()
-	if err != nil {
+	if err := managedclusteraddons.AddManagedServiceAccountAddon(addonManager, kubeClient, addonClient); err != nil {
 		return err
 	}
 
-	if err := addonManager.AddAgent(agentAddOn); err != nil {
+	if err := managedclusteraddons.AddPolicyAddons(addonManager, kubeConfig, kubeClient, addonClient); err != nil {
 		return err
 	}
+
 	if err := addonManager.Start(ctx); err != nil {
 		return err
 	}
