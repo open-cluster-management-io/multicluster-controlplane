@@ -2,7 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- addon-deployment.yaml
 - propagator-deployment.yaml
 - propagator-metrics-service.yaml
 - role.yaml

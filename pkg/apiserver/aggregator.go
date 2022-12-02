@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -17,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -272,12 +270,8 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 		controllerConfig.ContentType = "application/json"
 
 		go func() {
-			if err := wait.PollUntil(100*time.Microsecond, func() (bool, error) {
-				return cache.WaitForCacheSync(goContext(context).Done(),
-					aggregatorConfig.GenericConfig.SharedInformerFactory.Certificates().V1().CertificateSigningRequests().Informer().HasSynced), nil
-			}, goContext(context).Done()); err != nil {
-				klog.Errorf("failed to wait for caches to sync: %v", err)
-			}
+			aggregatorConfig.GenericConfig.SharedInformerFactory.WaitForCacheSync(goContext(context).Done())
+			klog.Infof("starting ocm addon manager")
 			if err := ocmcontroller.InstallManagedClusterAddons(
 				goContext(context),
 				controllerConfig,
