@@ -12,37 +12,38 @@ import (
 )
 
 var _ = ginkgo.Describe("ManagedCluster", func() {
-	var runtimeClient1 runtimeClient.Client
-	var runtimeClient2 runtimeClient.Client
+	var runtimeClientMap map[string]runtimeClient.Client
 
 	ginkgo.BeforeEach(func() {
-		ginkgo.By("Check the option controlplane")
-		gomega.Expect(len(options.ControlPlanes) == 2).Should(gomega.BeTrue())
-		gomega.Expect(len(options.ControlPlanes[0].ManagedCluster) == 1).Should(gomega.BeTrue())
-		gomega.Expect(len(options.ControlPlanes[1].ManagedCluster) == 1).Should(gomega.BeTrue())
+		runtimeClientMap = make(map[string]runtimeClient.Client, 0)
 
-		ginkgo.By("Get the clients of controlplanes")
-		var err error
-		runtimeClient1, err = getRuntimeClient(options.ControlPlanes[0].KubeConfig, options.ControlPlanes[0].Context)
-		gomega.Expect(err).Should(gomega.BeNil())
-		runtimeClient2, err = getRuntimeClient(options.ControlPlanes[1].KubeConfig, options.ControlPlanes[1].Context)
-		gomega.Expect(err).Should(gomega.BeNil())
+		for _, controlPlane := range options.ControlPlanes {
+			ginkgo.By("Ensure each controlplane with a managed cluster")
+			gomega.Expect(len(controlPlane.Name) > 0).Should(gomega.BeTrue())
+			gomega.Expect(len(controlPlane.ManagedCluster) == 1).Should(gomega.BeTrue())
+
+			ginkgo.By("Get the client of the controlplane")
+			client, err := getRuntimeClient(controlPlane.KubeConfig, controlPlane.Context)
+			gomega.Expect(err).Should(gomega.BeNil())
+			runtimeClientMap[controlPlane.Name] = client
+		}
+
+		gomega.Expect(len(runtimeClientMap) > 0).Should(gomega.BeTrue())
 	})
 
-	ginkgo.It("get managed cluster from controlplanes", func() {
-		ginkgo.By("Check the managed cluster from controlplane1")
-		managedCluster1 := clusterv1.ManagedCluster{}
-		managedCluster1.SetName(options.ControlPlanes[0].ManagedCluster[0].Name)
-		err := runtimeClient1.Get(context.TODO(), runtimeClient.ObjectKeyFromObject(&managedCluster1), &managedCluster1)
-		gomega.Expect(err).Should(gomega.BeNil())
-		gomega.Expect(len(managedCluster1.GetUID()) > 0).Should(gomega.BeTrue())
+	ginkgo.It("get managed clusters from controlplanes", func() {
+		testControlPlane := 0
+		for _, controlPlane := range options.ControlPlanes {
+			managedCluster := clusterv1.ManagedCluster{}
+			managedCluster.SetName(controlPlane.ManagedCluster[0].Name)
+			client := runtimeClientMap[controlPlane.Name]
 
-		ginkgo.By("Check the managed cluster from controlplane2")
-		managedCluster2 := clusterv1.ManagedCluster{}
-		managedCluster2.SetName(options.ControlPlanes[1].ManagedCluster[0].Name)
-		err = runtimeClient2.Get(context.TODO(), runtimeClient.ObjectKeyFromObject(&managedCluster2), &managedCluster2)
-		gomega.Expect(err).Should(gomega.BeNil())
-		gomega.Expect(len(managedCluster2.GetUID()) > 0).Should(gomega.BeTrue())
+			err := client.Get(context.TODO(), runtimeClient.ObjectKeyFromObject(&managedCluster), &managedCluster)
+			gomega.Expect(err).Should(gomega.BeNil())
+			gomega.Expect(len(managedCluster.GetUID()) > 0).Should(gomega.BeTrue())
+			testControlPlane++
+		}
+		gomega.Expect(testControlPlane > 0).Should(gomega.BeTrue())
 	})
 })
 
