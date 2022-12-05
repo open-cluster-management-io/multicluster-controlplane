@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
@@ -44,7 +44,7 @@ jobs:
         arch: [ amd64, arm64 ]
     steps:
       - name: checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
@@ -71,7 +71,7 @@ jobs:
     needs: [ env, image ]
     steps:
       - name: checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
@@ -96,7 +96,7 @@ jobs:
     needs: [ env, image-manifest ]
     steps:
       - name: checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
