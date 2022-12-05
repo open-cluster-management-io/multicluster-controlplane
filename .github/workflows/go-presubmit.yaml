@@ -1,7 +1,13 @@
 name: GoPreSubmit
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch: 
+    inputs:
+        debug_enabled:
+          type: boolean
+          description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'     
+          required: false
+          default: false
   pull_request:
     branches:
       - main
@@ -22,77 +28,103 @@ jobs:
     name: check 
     runs-on: ubuntu-latest
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
-      - name: install Go
+      - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: check
+      - name: Check
         run: make check 
 
   verify:
     name: verify
     runs-on: ubuntu-latest
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
-      - name: install Go
+      - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: verify
+      - name: Verify
         run: make verify
 
   build:
     name: build
     runs-on: ubuntu-latest
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
-      - name: install Go
+      - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: build
+      - name: Build
         run: make vendor && make build
-  
+
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          path: go/src/open-cluster-management.io/multicluster-controlplane
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+        timeout-minutes: 15
+      - name: Setup integration
+        run: make setup-integration
+      - name: Test integration
+        run: make test-integration
+        
   e2e:
     name: e2e
     runs-on: ubuntu-latest
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
-      - name: install Go
+      - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: get image label
+      - name: Set Image label
         id: vars
         run: |
           echo "::set-output name=label::$(git rev-parse --short ${{ github.sha }})"
-      - name: build image
+      - name: Build image
         run: make image
         env:
           IMAGE_NAME: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}
-      - name: setup controlplanes on KinD cluster
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+        timeout-minutes: 15
+      - name: Setup controlplanes on KinD cluster
         run: |
-          make setup-controlplane
+          make setup-e2e
         env: 
           CONTROLPLANE_IMAGE: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}
-      - name: run e2e test
+      - name: Run e2e test
         run: |
           make test-e2e
         env:

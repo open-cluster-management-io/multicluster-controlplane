@@ -103,18 +103,30 @@ deploy-all: deploy deploy-work-manager-addon deploy-managed-serviceaccount-addon
 export CONTROLPLANE_NUMBER ?= 2
 export VERBOSE ?= 5
 
-setup-dep:
-	./test/bin/dep.sh
-.PHONY: setup-dep
+test-setup-dep:
+	./test/bin/setup-dep.sh
+.PHONY: test-setup-dep
 
-setup-controlplane: setup-dep
-	./test/bin/setup.sh
-.PHONY: setup-controlplane
+setup-e2e: test-setup-dep
+	./test/bin/setup-e2e.sh
+.PHONY: setup-e2e
 
-cleanup-controlplane:
-	./test/bin/cleanup.sh
-.PHONY: cleanup-controlplane
+cleanup-e2e:
+	./test/bin/cleanup-e2e.sh
+.PHONY: cleanup-e2e
 
 test-e2e:
 	./test/bin/test-e2e.sh -v $(VERBOSE)
 .PHONY: test-e2e
+
+setup-integration: test-setup-dep vendor build
+	./test/bin/setup-integration.sh
+.PHONY: setup-integration
+
+cleanup-integration:
+	./test/bin/cleanup-integration.sh
+.PHONY: cleanup-integration
+
+test-integration:
+	./test/bin/test-integration.sh -v $(VERBOSE)
+.PHONY: test-integration
