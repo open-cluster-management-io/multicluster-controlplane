@@ -1,0 +1,40 @@
+---
+# Default values for work-manager addOn.
+org: open-cluster-management
+
+nameOverride: work-manager
+fullnameOverride: klusterlet-addon-workmgr
+
+hubKubeConfigSecret: null
+clusterName: null
+
+product: ""
+hasRoute: false
+enableSyncLabelsToClusterClaims: true
+enableNodeCapacity: true
+
+affinity: {}
+
+tolerations:
+- key: "dedicated"
+  operator: "Equal"
+  value: "infra"
+  effect: "NoSchedule"
+- key: node-role.kubernetes.io/infra
+  operator: Exists
+  effect: NoSchedule
+
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+logLevel: null
+
+global:
+  imagePullPolicy: IfNotPresent
+  imagePullSecret: open-cluster-management-image-pull-credentials
+  imageOverrides:
+    multicloud_manager: quay.io/stolostron/multicloud-manager:latest
+  nodeSelector: {}

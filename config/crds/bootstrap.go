@@ -47,6 +47,14 @@ var baseCRD = []string{
 	"0000_05_clusters.open-cluster-management.io_addonplacementscores.crd.yaml",
 	// managed serviceaccount addon
 	"0000_06_authentication.open-cluster-management.io_managedserviceaccounts.crd.yaml",
+	// policy addon
+	"0000_07_apps.open-cluster-management.io_placementrules.crd.yaml",
+	"0000_07_policy.open-cluster-management.io_placementbindings.crd.yaml",
+	"0000_07_policy.open-cluster-management.io_policies.crd.yaml",
+	"0000_07_policy.open-cluster-management.io_policyautomations.crd.yaml",
+	"0000_07_policy.open-cluster-management.io_policysets.crd.yaml",
+	// managed cluster info
+	"0000_08_internal.open-cluster-management.io_managedclusterinfos.crd.yaml",
 }
 
 func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {

@@ -1,0 +1,13 @@
+{{- if eq .Values.installMode "Hosted" }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: hosting
+    addon.open-cluster-management.io/namespace: "true"
+  {{- if eq (.Release.Namespace | trimPrefix "klusterlet-") .Values.clusterName }}
+  annotations:
+    "addon-cluster-management.io/deletion-orphan": ""
+  {{- end }}
+{{- end }}

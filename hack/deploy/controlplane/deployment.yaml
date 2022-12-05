@@ -44,6 +44,15 @@ spec:
           - "--service-account-issuer=https://kubernetes.default.svc"
           - "--external-hostname=API_HOST"
           - "--profiling=false"
+        env:
+        - name: CONFIG_POLICY_CONTROLLER_IMAGE
+          value: quay.io/open-cluster-management/config-policy-controller:latest
+        - name: KUBE_RBAC_PROXY_IMAGE
+          value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.10
+        - name: GOVERNANCE_POLICY_FRAMEWORK_ADDON_IMAGE
+          value: quay.io/open-cluster-management/governance-policy-framework-addon:latest
+        - name: MANAGED_SERVICE_ACCOUNT_IMAGE
+          value: quay.io/open-cluster-management/managed-serviceaccount:latest
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

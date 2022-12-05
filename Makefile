@@ -97,7 +97,7 @@ deploy-policy-addon:
 	mv hack/deploy/addon/policy/manager/kustomization.yaml.tmp hack/deploy/addon/policy/manager/kustomization.yaml
 
 
-deploy-all: deploy deploy-work-manager-addon deploy-policy-addon
+deploy-all: deploy
 
 # test
 export CONTROLPLANE_NUMBER ?= 2

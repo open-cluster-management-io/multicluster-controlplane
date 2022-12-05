@@ -11,8 +11,12 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	kubeevents "k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
@@ -24,7 +28,13 @@ import (
 	clusterv1informers "open-cluster-management.io/api/client/cluster/informers/externalversions"
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned"
 	workv1informers "open-cluster-management.io/api/client/work/informers/externalversions"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	ocmfeature "open-cluster-management.io/api/feature"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	policyv1beta1 "open-cluster-management.io/governance-policy-propagator/api/v1beta1"
+	authv1alpha1 "open-cluster-management.io/managed-serviceaccount/api/v1alpha1"
+	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	scheduling "open-cluster-management.io/placement/pkg/controllers/scheduling"
 	"open-cluster-management.io/placement/pkg/debugger"
 	"open-cluster-management.io/registration/pkg/features"
@@ -38,8 +48,10 @@ import (
 	"open-cluster-management.io/registration/pkg/hub/managedclustersetbinding"
 	"open-cluster-management.io/registration/pkg/hub/rbacfinalizerdeletion"
 	"open-cluster-management.io/registration/pkg/hub/taint"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
+	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/ocmcontroller/clustermanagementaddons"
 	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/ocmcontroller/managedclusteraddons"
 )
 
@@ -226,6 +238,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 		scheduler,
 		controllerContext.EventRecorder, recorder,
 	)
+
 	go clusterInformers.Start(ctx.Done())
 	go workInformers.Start(ctx.Done())
 	go addOnInformers.Start(ctx.Done())
@@ -251,6 +264,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 	return nil
 }
 
+// InstallManagedClusterAddons to install managed-serviceaccount and policy addons in managed cluster
 func InstallManagedClusterAddons(ctx context.Context, kubeConfig *rest.Config, kubeClient kubernetes.Interface) error {
 
 	addonManager, err := addonmanager.New(kubeConfig)
@@ -262,17 +276,66 @@ func InstallManagedClusterAddons(ctx context.Context, kubeConfig *rest.Config, k
 		return err
 	}
 
+	if err := managedclusteraddons.AddPolicyAddons(addonManager, kubeConfig, kubeClient, addonClient); err != nil {
+		return err
+	}
+
 	if err := managedclusteraddons.AddManagedServiceAccountAddon(addonManager, kubeClient, addonClient); err != nil {
 		return err
 	}
 
-	if err := managedclusteraddons.AddPolicyAddons(addonManager, kubeConfig, kubeClient, addonClient); err != nil {
+	if err := managedclusteraddons.AddManagedClusterInfoAddon(addonManager, kubeClient, addonClient); err != nil {
 		return err
 	}
 
 	if err := addonManager.Start(ctx); err != nil {
 		return err
 	}
+	<-ctx.Done()
+	return nil
+}
+
+// InstallClusterManagmentAddons installs managed-serviceaccount and policy addons in hub cluster
+func InstallClusterManagmentAddons(ctx context.Context, kubeConfig *rest.Config,
+	kubeClient kubernetes.Interface, dynamicClient dynamic.Interface) error {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(authv1alpha1.AddToScheme(scheme))
+	// policy propagator required
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
+	utilruntime.Must(appsv1.AddToScheme(scheme))
+	utilruntime.Must(policyv1.AddToScheme(scheme))
+	utilruntime.Must(policyv1beta1.AddToScheme(scheme))
+
+	klog.Info("InstallClusterManagmentAddons")
+
+	mgr, err := ctrl.NewManager(kubeConfig, ctrl.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		klog.Error("unable to start manager", err)
+		return err
+	}
+
+	klog.Info("finish new InstallClusterManagmentAddons")
+
+	if err := clustermanagementaddons.SetupClusterInfoWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := clustermanagementaddons.SetupManagedServiceAccountWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := clustermanagementaddons.SetupPolicyWithManager(ctx, mgr, kubeConfig, kubeClient, dynamicClient); err != nil {
+		return err
+	}
+
+	if err := mgr.Start(ctx); err != nil {
+		return err
+	}
+
 	<-ctx.Done()
 	return nil
 }
