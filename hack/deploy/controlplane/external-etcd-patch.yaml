@@ -2,22 +2,11 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: multicluster-controlplane
-  labels:
-    app: multicluster-controlplane
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: multicluster-controlplane
   template:
-    metadata:
-      labels:
-        app: multicluster-controlplane
     spec:
       containers:
       - name: controlplane
-        image: quay.io/open-cluster-management/multicluster-controlplane
-        imagePullPolicy: IfNotPresent
         args:
           - "/multicluster-controlplane"
           - "--authorization-mode=RBAC"
@@ -38,29 +27,26 @@ spec:
           - "--tls-cert-file=/controlplane/cert/serving-kube-apiserver.crt"
           - "--tls-private-key-file=/controlplane/cert/serving-kube-apiserver.key"
           - "--feature-gates=DefaultClusterSet=true,OpenAPIV3=false"
-          - "--enable-embedded-etcd=true"
-          - "--etcd-servers=https://127.0.0.1:2379"
+          - "--enable-embedded-etcd=false"
+          - "--etcd-servers=http://127.0.0.1:2379"
+          - "--etcd-cafile=/controlplane/etcdconfig/ca.pem"
+          - "--etcd-certfile=/controlplane/etcdconfig/client.pem"
+          - "--etcd-keyfile=/controlplane/etcdconfig/client-key.pem"
+          - "--etcd-prefix=/multicluster-controlplane-test-1"
           - "--service-cluster-ip-range=10.0.0.0/24"
           - "--service-account-issuer=https://kubernetes.default.svc"
           - "--external-hostname=API_HOST"
-          - "--profiling=false"
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          privileged: false
-          runAsNonRoot: true
         volumeMounts:
         - name: controlplane-cert
           mountPath: /controlplane/cert
           readOnly: true
-        - mountPath: /.ocmconfig
-          name: ocmconfig 
+        - name: etcdconfig 
+          mountPath: /controlplane/etcdconfig
+          readOnly: true
       volumes:
       - name: controlplane-cert
         secret:
           secretName: controlplane-cert
-      - name: ocmconfig 
-        emptyDir:
-          sizeLimit: 500Mi
+      - name: etcdconfig 
+        secret:
+          secretName: cert-etcd    
