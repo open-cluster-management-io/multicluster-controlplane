@@ -62,6 +62,8 @@ for i in $(seq 1 "${number}"); do
   printf "\033[0;32m%s\n\033[0m" "## Deploy standalone addon in namespace $namespace"
   # wait the controplane api-server is ready
   wait_appear "$KUBECTL get pod -n $namespace -l app=multicluster-controlplane --ignore-not-found | grep Running || true"
+  kube::util::wait_for_url "https://${external_host_ip}:${external_host_port}/healthz" "apiserver: " 1 60 1 || { echo "Controlplane $namespace is not ready!" ; exit 1 ; }
+
   cd $project_dir
   mkdir ${project_dir}/hack/deploy/cert-${namespace}
   cp ${kubeconfig_dir}/${namespace} ${project_dir}/hack/deploy/cert-${namespace}/kubeconfig # for makefile
@@ -76,6 +78,7 @@ for i in $(seq 1 "${number}"); do
   token=$(echo $output | awk -F ' ' '{print $1}' | awk -F '=' '{print $2}')
   # join the controlplane
   clusteradm --kubeconfig=${kubeconfig_dir}/${namespace}-mc1 join --hub-token $token --hub-apiserver "https://${external_host_ip}:${external_host_port}" --cluster-name ${namespace}-mc1 --wait
+  wait_appear "$KUBECTL --kubeconfig=${kubeconfig_dir}/${namespace} get csr --ignore-not-found | grep ^${namespace}-mc1 || true"
   clusteradm --kubeconfig=${kubeconfig_dir}/${namespace} accept --clusters ${namespace}-mc1
 done
 
