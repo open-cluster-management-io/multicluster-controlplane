@@ -78,6 +78,7 @@ for i in $(seq 1 "${number}"); do
   token=$(echo $output | awk -F ' ' '{print $1}' | awk -F '=' '{print $2}')
   # join the controlplane
   clusteradm --kubeconfig=${kubeconfig_dir}/${namespace}-mc1 join --hub-token $token --hub-apiserver "https://${external_host_ip}:${external_host_port}" --cluster-name ${namespace}-mc1 --wait
+  wait_appear "$KUBECTL --kubeconfig=${kubeconfig_dir}/${namespace} get csr --ignore-not-found | grep ^${namespace}-mc1 || true"
   clusteradm --kubeconfig=${kubeconfig_dir}/${namespace} accept --clusters ${namespace}-mc1
 done
 
