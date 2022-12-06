@@ -11,6 +11,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/pkg/errors"
+	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/client-go/rest"
 	kubeevents "k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
@@ -307,8 +309,10 @@ func InstallClusterManagmentAddons(ctx context.Context, kubeConfig *rest.Config,
 	utilruntime.Must(appsv1.AddToScheme(scheme))
 	utilruntime.Must(policyv1.AddToScheme(scheme))
 	utilruntime.Must(policyv1beta1.AddToScheme(scheme))
+	// managed cluster info
+	utilruntime.Must(clusterinfov1beta1.AddToScheme(scheme))
 
-	klog.Info("InstallClusterManagmentAddons")
+	ctrl.SetLogger(klogr.New())
 
 	mgr, err := ctrl.NewManager(kubeConfig, ctrl.Options{
 		Scheme: scheme,

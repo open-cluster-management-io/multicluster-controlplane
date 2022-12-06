@@ -25,8 +25,6 @@ import (
 func SetupPolicyWithManager(ctx context.Context, mgr ctrl.Manager, kubeconfig *rest.Config,
 	kubeClient kubernetes.Interface, dynamicClient dynamic.Interface) error {
 
-	klog.Info("SetupPolicyWithManager")
-
 	dynamicWatcherReconciler, dynamicWatcherSource := k8sdepwatches.NewControllerRuntimeSource()
 
 	dynamicWatcher, err := k8sdepwatches.New(kubeconfig, dynamicWatcherReconciler, nil)

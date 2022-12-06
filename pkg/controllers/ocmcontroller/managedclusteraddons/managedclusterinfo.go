@@ -35,7 +35,6 @@ const (
 	annotationNodeSelector = "open-cluster-management/nodeSelector"
 )
 
-//go:embed managedclusterinfo/manifests
 //go:embed managedclusterinfo/manifests/chart
 //go:embed managedclusterinfo/manifests/chart/templates/_helpers.tpl
 var ChartFS embed.FS

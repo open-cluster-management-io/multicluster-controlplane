@@ -76,7 +76,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(
+	if err := c.Watch(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(
 		handler.MapFunc(func(a client.Object) []reconcile.Request {
 			certSecret, ok := a.(*corev1.Secret)
 			if !ok {
@@ -105,7 +105,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			}
 			return requests
 		}),
-	))
+	)); err != nil {
+		return err
+	}
 	return nil
 }
 
