@@ -8,11 +8,13 @@ import (
 
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,10 +42,28 @@ type ClusterInfReconciler struct {
 	scheme *runtime.Scheme
 }
 
-func SetupClusterInfoWithManager(mgr manager.Manager) error {
-	var err error
+func SetupClusterInfoWithManager(mgr manager.Manager, kubeClient kubernetes.Interface) error {
 
-	if err = add(mgr, newClusterInfoReconciler(mgr)); err != nil {
+	// apply managed-cluster-workmgr clusterrole
+	if _, err := kubeClient.RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "managed-cluster-workmgr",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{APIGroups: []string{"", "events.k8s.io"}, Resources: []string{"events"}, Verbs: []string{"create", "update", "patch"}},
+			{APIGroups: []string{"action.open-cluster-management.io"}, Resources: []string{"managedclusteractions"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{"action.open-cluster-management.io"}, Resources: []string{"managedclusteractions/status"}, Verbs: []string{"update", "patch"}},
+			{APIGroups: []string{"internal.open-cluster-management.io"}, Resources: []string{"managedclusterinfos"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{"internal.open-cluster-management.io"}, Resources: []string{"managedclusterinfos/status"}, Verbs: []string{"update", "patch"}},
+			{APIGroups: []string{"view.open-cluster-management.io"}, Resources: []string{"managedclusterviews"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{"view.open-cluster-management.io"}, Resources: []string{"managedclusterviews/status"}, Verbs: []string{"update", "patch"}},
+			{APIGroups: []string{"view.open-cluster-management.io"}, Resources: []string{"managedclusterviews/status"}, Verbs: []string{"update", "patch"}},
+		},
+	}, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	if err := add(mgr, newClusterInfoReconciler(mgr)); err != nil {
 		return err
 	}
 	return nil

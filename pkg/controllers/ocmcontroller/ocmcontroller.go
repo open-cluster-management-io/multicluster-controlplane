@@ -324,7 +324,7 @@ func InstallClusterManagmentAddons(ctx context.Context, kubeConfig *rest.Config,
 
 	klog.Info("finish new InstallClusterManagmentAddons")
 
-	if err := clustermanagementaddons.SetupClusterInfoWithManager(mgr); err != nil {
+	if err := clustermanagementaddons.SetupClusterInfoWithManager(mgr, kubeClient); err != nil {
 		return err
 	}
 
