@@ -28,8 +28,8 @@ jobs:
     name: check 
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: checkout code
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
@@ -44,8 +44,8 @@ jobs:
     name: verify
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: checkout code
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
@@ -60,8 +60,8 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: checkout code
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
           path: go/src/open-cluster-management.io/multicluster-controlplane
