@@ -12,6 +12,7 @@ function generate_certs {
     mkdir -p "${CERT_DIR}"
     CONTROLPLANE_SUDO=$(test -w "${CERT_DIR}" || echo "sudo -E")
 
+    # in the flags of apiserver --service-cluster-ip-range
     FIRST_SERVICE_CLUSTER_IP=${FIRST_SERVICE_CLUSTER_IP:-10.0.0.1}
 
     # create ca
@@ -81,4 +82,17 @@ function wait_appear() {
     (( second = second + 2 ))
   done
   echo "* CMD get reponse: $(eval $command)"
+}
+
+function print_color {
+    message=$1
+    prefix=${2:+$2: } # add color only if defined
+    color=${3:-1}     # default is red
+    echo -n "$(tput bold)$(tput setaf "${color}")"
+    echo "${prefix}${message}"
+    echo -n "$(tput sgr0)"
+}
+
+function warning_log {
+    print_color "$1" "W$(date "+%m%d %H:%M:%S")]" 1
 }
