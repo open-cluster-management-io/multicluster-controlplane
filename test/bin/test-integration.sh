@@ -46,7 +46,7 @@ cd ${project_dir}/test/e2e
 if [ -z "${filter}" ]; then
   ./e2e.test --options=$options_file -v=$verbose
 else
-  ./e2e.test --label-filter=${filter} --options=$options_file -v=$verbose
+  ./e2e.test --ginkgo.label-filter=${filter} --ginkgo.v --options=$options_file -v=$verbose 
 fi
 
 rm ${project_dir}/test/e2e/e2e.test

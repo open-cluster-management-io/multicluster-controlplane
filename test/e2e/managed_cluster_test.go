@@ -13,7 +13,7 @@ import (
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = ginkgo.Describe("ManagedCluster", func() {
+var _ = ginkgo.Describe("ManagedCluster", ginkgo.Label("cluster"), func() {
 	ginkgo.It("get managed clusters from controlPlanes", func() {
 		gomega.Eventually(func() bool {
 			availableCount := 0

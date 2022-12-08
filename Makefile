@@ -128,5 +128,5 @@ cleanup-integration:
 .PHONY: cleanup-integration
 
 test-integration:
-	./test/bin/test-integration.sh -v $(VERBOSE)
+	./test/bin/test-integration.sh -v $(VERBOSE) -f "!addon"
 .PHONY: test-integration

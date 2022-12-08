@@ -20,7 +20,7 @@ import (
 	msacommon "open-cluster-management.io/managed-serviceaccount/pkg/common"
 )
 
-var _ = ginkgo.Describe("ManagedServiceAccount", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("ManagedServiceAccount", ginkgo.Label("addon"), ginkgo.Ordered, func() {
 	var controlPlane ControlPlane
 	var managedCluster Cluster
 	var msaName string
@@ -33,7 +33,7 @@ var _ = ginkgo.Describe("ManagedServiceAccount", ginkgo.Ordered, func() {
 		msaName = "msa-e2e"
 	})
 
-	ginkgo.It("managed-serviceaccount addon should available", func() {
+	ginkgo.It("managed-serviceaccount addon should be available", func() {
 		availableCount := 0
 		for _, controlPlane := range options.ControlPlanes {
 			addon := &addonv1alpha1.ManagedClusterAddOn{}
