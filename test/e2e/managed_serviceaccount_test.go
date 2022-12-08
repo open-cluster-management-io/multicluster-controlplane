@@ -34,22 +34,23 @@ var _ = ginkgo.Describe("ManagedServiceAccount", ginkgo.Label("addon"), ginkgo.O
 	})
 
 	ginkgo.It("managed-serviceaccount addon should be available", func() {
-		availableCount := 0
-		for _, controlPlane := range options.ControlPlanes {
-			addon := &addonv1alpha1.ManagedClusterAddOn{}
-			runtimeClient := runtimeClientMap[controlPlane.Name]
-			err := runtimeClient.Get(context.TODO(), types.NamespacedName{
-				Namespace: controlPlane.ManagedCluster[0].Name,
-				Name:      msacommon.AddonName,
-			}, addon)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			if meta.IsStatusConditionTrue(addon.Status.Conditions, addonv1alpha1.ManagedClusterAddOnConditionAvailable) {
-				klog.V(5).Infof("managed-serviceaccount addon is available on %s", controlPlane.Name)
-				availableCount++
+		gomega.Eventually(func() bool {
+			availableCount := 0
+			for _, controlPlane := range options.ControlPlanes {
+				addon := &addonv1alpha1.ManagedClusterAddOn{}
+				runtimeClient := runtimeClientMap[controlPlane.Name]
+				err := runtimeClient.Get(context.TODO(), types.NamespacedName{
+					Namespace: controlPlane.ManagedCluster[0].Name,
+					Name:      msacommon.AddonName,
+				}, addon)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				if meta.IsStatusConditionTrue(addon.Status.Conditions, addonv1alpha1.ManagedClusterAddOnConditionAvailable) {
+					klog.V(5).Infof("managed-serviceaccount addon is available on %s", controlPlane.Name)
+					availableCount++
+				}
 			}
-		}
-		gomega.Expect(availableCount > 0).Should(gomega.BeTrue())
-		gomega.Expect(availableCount == len(options.ControlPlanes)).Should(gomega.BeTrue())
+			return availableCount > 0 && availableCount == len(options.ControlPlanes)
+		}).WithTimeout(30 * time.Second).Should(gomega.BeTrue())
 	})
 
 	// https://github.com/open-cluster-management-io/enhancements/tree/main/enhancements/sig-architecture/19-projected-serviceaccount-token
