@@ -4,6 +4,7 @@ BINARYDIR := bin
 KUBECTL?=kubectl
 KUSTOMIZE?=kustomize
 
+ETCD_NS?=multicluster-controlplane-etcd
 HUB_NAME?=multicluster-controlplane
 
 IMAGE_REGISTRY?=quay.io/open-cluster-management
@@ -65,6 +66,14 @@ vendor:
 update:
 	bash -x hack/crd-update/copy-crds.sh
 .PHONY: update
+
+deploy-etcd: 
+	$(KUBECTL) get ns $(ETCD_NS); if [ $$? -ne 0 ] ; then $(KUBECTL) create ns $(ETCD_NS); fi
+	hack/deploy-etcd.sh
+
+deploy-with-external-etcd:
+	$(KUBECTL) get ns $(HUB_NAME); if [ $$? -ne 0 ] ; then $(KUBECTL) create ns $(HUB_NAME); fi
+	hack/deploy-multicluster-controlplane.sh false
 
 deploy:
 	$(KUBECTL) get ns $(HUB_NAME); if [ $$? -ne 0 ] ; then $(KUBECTL) create ns $(HUB_NAME); fi
