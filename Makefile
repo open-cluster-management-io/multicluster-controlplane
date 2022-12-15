@@ -48,7 +48,7 @@ build-bin-release:
 
 build: 
 	$(shell if [ ! -e $(BINARYDIR) ];then mkdir -p $(BINARYDIR); fi)
-	go build -o bin/multicluster-controlplane cmd/main.go 
+	go build -o bin/multicluster-controlplane cmd/server/main.go 
 .PHONY: build
 
 image:

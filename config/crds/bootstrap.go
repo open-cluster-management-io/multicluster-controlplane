@@ -20,7 +20,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -47,10 +46,48 @@ var baseCRD = []string{
 	"0000_05_clusters.open-cluster-management.io_addonplacementscores.crd.yaml",
 }
 
-func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
+func WaitForOcmCrdReady(ctx context.Context, dynamicClient dynamic.Interface) bool {
+	ocmCRDs := []string{
+		"managedclusters.cluster.open-cluster-management.io",
+
+		"managedclustersets.cluster.open-cluster-management.io",
+		"managedclustersetbindings.cluster.open-cluster-management.io",
+
+		"manifestworks.work.open-cluster-management.io",
+
+		"clustermanagementaddons.addon.open-cluster-management.io",
+		"managedclusteraddons.addon.open-cluster-management.io",
+		"addondeploymentconfigs.addon.open-cluster-management.io",
+
+		"placementdecisions.cluster.open-cluster-management.io",
+		"placements.cluster.open-cluster-management.io",
+		"addonplacementscores.cluster.open-cluster-management.io",
+	}
+	if err := wait.PollUntil(1*time.Second, func() (bool, error) {
+		for _, crdName := range ocmCRDs {
+			_, err := dynamicClient.Resource(schema.GroupVersionResource{
+				Group:    apiextensionsv1.SchemeGroupVersion.Group,
+				Version:  apiextensionsv1.SchemeGroupVersion.Version,
+				Resource: "customresourcedefinitions",
+			}).Get(ctx, crdName, metav1.GetOptions{})
+			if err != nil {
+				klog.Infof("waiting ocm crd: %v", err)
+				return false, err
+			}
+			klog.Infof("ocm crd(%s) is ready", crdName)
+		}
+		klog.Infof("ocm crds are ready")
+		return true, nil
+	}, ctx.Done()); err != nil {
+		return false
+	}
+	return true
+}
+
+func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface) error {
 	// poll here, call create to create base crds
 	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
-		if err := Create(ctx, crdClient.ApiextensionsV1().CustomResourceDefinitions(), baseCRD); err != nil {
+		if err := create(ctx, crdClient.ApiextensionsV1().CustomResourceDefinitions(), baseCRD); err != nil {
 			klog.Errorf("failed to bootstrap system CRDs: %v", err)
 			return false, nil // keep retrying
 		}
@@ -64,12 +101,12 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 
 // Create creates the given CRDs using the target client and waits
 // for all of them to become established in parallel. This call is blocking.
-func Create(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, crds []string) error {
-	return CreateFromFile(ctx, client, crds, raw)
+func create(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, crds []string) error {
+	return createFromFile(ctx, client, crds, raw)
 }
 
 // CreateFromFile call createOneFromFile for each crd in filenames in parallel
-func CreateFromFile(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, filenames []string, fs embed.FS) error {
+func createFromFile(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, filenames []string, fs embed.FS) error {
 	wg := sync.WaitGroup{}
 	bootstrapErrChan := make(chan error, len(filenames))
 	for _, fname := range filenames {
