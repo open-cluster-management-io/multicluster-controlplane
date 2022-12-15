@@ -23,10 +23,8 @@ bin/
 .idea/
 
 # Cert
-hack/deploy/cert-*
-hack/deploy/controlplane/cert
-
 .ocmconfig
+multicluster_ca
 
 # Test
 test/resources/kubeconfig

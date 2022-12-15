@@ -40,7 +40,6 @@ function check_clusteradm() {
 function check_ginkgo() {
   if ! command -v ginkgo >/dev/null 2>&1; then 
     go install github.com/onsi/ginkgo/v2/ginkgo@v2.5.0
-    go get github.com/onsi/gomega/...
     sudo mv $(go env GOPATH)/bin/ginkgo ${bin_dir}/ginkgo
   fi 
   echo "ginkgo version: $(ginkgo version)"
