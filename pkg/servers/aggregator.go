@@ -154,24 +154,6 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 		return nil, err
 	}
 
-	// if err := aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-crd", func(context genericapiserver.PostStartHookContext) error {
-	// 	return ocmcontroller.InstallCrd(context.StopCh, aggregatorConfig)
-	// }); err != nil {
-	// 	return nil, err
-	// }
-
-	// if err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-registration-resource", func(context genericapiserver.PostStartHookContext) error {
-	// 	return ocmcontroller.InstallHubResource(context.StopCh, aggregatorConfig)
-	// }); err != nil {
-	// 	return nil, err
-	// }
-
-	// if err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-controllers", func(context genericapiserver.PostStartHookContext) error {
-	// 	return ocmcontroller.InstallControllers(context.StopCh, aggregatorConfig)
-	// }); err != nil {
-	// 	return nil, err
-	// }
-
 	return aggregatorServer, nil
 }
 

@@ -89,6 +89,30 @@ destroy:
 	$(KUBECTL) delete ns $(HUB_NAME) --ignore-not-found
 	rm -r hack/deploy/cert-$(HUB_NAME)
 
+deploy-work-manager-addon:
+	$(KUBECTL) apply -k hack/deploy/addon/work-manager/hub --kubeconfig=hack/deploy/cert-$(HUB_NAME)/kubeconfig
+	cp hack/deploy/addon/work-manager/manager/kustomization.yaml hack/deploy/addon/work-manager/manager/kustomization.yaml.tmp
+	cd hack/deploy/addon/work-manager/manager && $(KUSTOMIZE) edit set namespace $(HUB_NAME)
+	$(KUSTOMIZE) build hack/deploy/addon/work-manager/manager | $(KUBECTL) apply -f -
+	mv hack/deploy/addon/work-manager/manager/kustomization.yaml.tmp hack/deploy/addon/work-manager/manager/kustomization.yaml
+
+deploy-managed-serviceaccount-addon:
+	$(KUBECTL) apply -k hack/deploy/addon/managed-serviceaccount/hub --kubeconfig=hack/deploy/cert-$(HUB_NAME)/kubeconfig
+	cp hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml.tmp
+	cd hack/deploy/addon/managed-serviceaccount/manager && $(KUSTOMIZE) edit set namespace $(HUB_NAME)
+	$(KUSTOMIZE) build hack/deploy/addon/managed-serviceaccount/manager | $(KUBECTL) apply -f -
+	mv hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml.tmp hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml
+
+deploy-policy-addon:
+	$(KUBECTL) apply -k hack/deploy/addon/policy/hub --kubeconfig=hack/deploy/cert-$(HUB_NAME)/kubeconfig
+	cp hack/deploy/addon/policy/manager/kustomization.yaml hack/deploy/addon/policy/manager/kustomization.yaml.tmp
+	cd hack/deploy/addon/policy/manager && $(KUSTOMIZE) edit set namespace $(HUB_NAME)
+	$(KUSTOMIZE) build hack/deploy/addon/policy/manager | $(KUBECTL) apply -f -
+	mv hack/deploy/addon/policy/manager/kustomization.yaml.tmp hack/deploy/addon/policy/manager/kustomization.yaml
+
+
+deploy-all: deploy deploy-work-manager-addon deploy-managed-serviceaccount-addon deploy-policy-addon
+
 # test
 export CONTROLPLANE_NUMBER ?= 2
 export VERBOSE ?= 5
