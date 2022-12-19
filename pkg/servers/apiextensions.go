@@ -1,3 +1,4 @@
+// Copyright Contributors to the Open Cluster Management project
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -17,7 +18,7 @@ limitations under the License.
 // package kubeapiserver does all of the work necessary to create a Kubernetes
 // APIServer by binding together the API, master and APIServer infrastructure.
 // It can be configured and called directly or via the hyperkube framework.
-package apiserver
+package servers
 
 import (
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -33,15 +34,18 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
 	kubeexternalinformers "k8s.io/client-go/informers"
-	"open-cluster-management.io/multicluster-controlplane/pkg/apiserver/options"
+	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
 )
+
+func createAPIExtensionsServer(apiextensionsConfig *apiextensionsapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget) (*apiextensionsapiserver.CustomResourceDefinitions, error) {
+	return apiextensionsConfig.Complete().New(delegateAPIServer)
+}
 
 func createAPIExtensionsConfig(
 	kubeAPIServerConfig genericapiserver.Config,
 	externalInformers kubeexternalinformers.SharedInformerFactory,
 	pluginInitializers []admission.PluginInitializer,
-	commandOptions *options.ServerRunOptions,
-	masterCount int,
+	options *options.ServerRunOptions, masterCount int,
 	serviceResolver webhook.ServiceResolver,
 	authResolverWrapper webhook.AuthenticationInfoResolverWrapper,
 ) (*apiextensionsapiserver.Config, error) {
@@ -52,7 +56,7 @@ func createAPIExtensionsConfig(
 	genericConfig.RESTOptionsGetter = nil
 
 	// copy the etcd options so we don't mutate originals.
-	etcdOptions := *commandOptions.Etcd
+	etcdOptions := *options.Etcd
 	etcdOptions.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(features.APIListChunking)
 	// this is where the true decodable levels come from.
 	etcdOptions.StorageConfig.Codec = apiextensionsapiserver.Codecs.LegacyCodec(v1beta1.SchemeGroupVersion, v1.SchemeGroupVersion)
@@ -61,7 +65,7 @@ func createAPIExtensionsConfig(
 	genericConfig.RESTOptionsGetter = &genericoptions.SimpleRestOptionsFactory{Options: etcdOptions}
 
 	// override MergedResourceConfig with apiextensions defaults and registry
-	if err := commandOptions.APIEnablement.ApplyTo(
+	if err := options.APIEnablement.ApplyTo(
 		&genericConfig,
 		apiextensionsapiserver.DefaultAPIResourceConfigSource(),
 		apiextensionsapiserver.Scheme); err != nil {
@@ -85,8 +89,4 @@ func createAPIExtensionsConfig(
 	apiextensionsConfig.GenericConfig.PostStartHooks = map[string]genericapiserver.PostStartHookConfigEntry{}
 
 	return apiextensionsConfig, nil
-}
-
-func createAPIExtensionsServer(apiextensionsConfig *apiextensionsapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget) (*apiextensionsapiserver.CustomResourceDefinitions, error) {
-	return apiextensionsConfig.Complete().New(delegateAPIServer)
 }

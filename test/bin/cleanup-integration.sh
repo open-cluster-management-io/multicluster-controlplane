@@ -21,3 +21,4 @@ fi
 mc="integration-mc"
 kind delete cluster --name $mc
 rm -rf ${project_dir}/test/resources/integration
+rm -rf ${project_dir}/.ocmconfig # embedded etcd data

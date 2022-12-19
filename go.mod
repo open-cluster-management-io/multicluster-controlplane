@@ -161,7 +161,6 @@ require (
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
-	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/cel-go v0.12.5 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect

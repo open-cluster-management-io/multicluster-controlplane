@@ -9,7 +9,7 @@ HUB_NAME?=multicluster-controlplane
 
 IMAGE_REGISTRY?=quay.io/open-cluster-management
 IMAGE_TAG?=latest
-IMAGE_NAME?=$(IMAGE_REGISTRY)/multicluster-controlplane:$(IMAGE_TAG)
+export IMAGE_NAME?=$(IMAGE_REGISTRY)/multicluster-controlplane:$(IMAGE_TAG)
 
 check-copyright: 
 	@hack/check/check-copyright.sh
@@ -48,11 +48,16 @@ build-bin-release:
 
 build: 
 	$(shell if [ ! -e $(BINARYDIR) ];then mkdir -p $(BINARYDIR); fi)
-	go build -o bin/multicluster-controlplane cmd/main.go 
+	go build -o bin/multicluster-controlplane cmd/server/main.go 
 .PHONY: build
 
 image:
 	docker build -f Dockerfile -t $(IMAGE_NAME) .
+.PHONY: image
+
+push:
+	docker push $(IMAGE_NAME)
+.PHONY: push
 
 clean:
 	rm -rf bin .ocmconfig vendor
@@ -112,11 +117,11 @@ deploy-all: deploy deploy-work-manager-addon deploy-managed-serviceaccount-addon
 export CONTROLPLANE_NUMBER ?= 2
 export VERBOSE ?= 5
 
-test-setup-dep:
+setup-dep:
 	./test/bin/setup-dep.sh
-.PHONY: test-setup-dep
+.PHONY: setup-dep
 
-setup-e2e: test-setup-dep
+setup-e2e: setup-dep
 	./test/bin/setup-e2e.sh
 .PHONY: setup-e2e
 
@@ -128,7 +133,7 @@ test-e2e:
 	./test/bin/test-e2e.sh -v $(VERBOSE)
 .PHONY: test-e2e
 
-setup-integration: test-setup-dep vendor build
+setup-integration: setup-dep vendor build
 	./test/bin/setup-integration.sh
 .PHONY: setup-integration
 

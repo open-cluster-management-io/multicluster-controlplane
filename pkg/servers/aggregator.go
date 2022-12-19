@@ -1,15 +1,13 @@
 // Copyright Contributors to the Open Cluster Management project
-package apiserver
+package servers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,9 +19,7 @@ import (
 	"k8s.io/apiserver/pkg/server/healthz"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/client-go/dynamic"
 	kubeexternalinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -36,17 +32,14 @@ import (
 	informers "k8s.io/kube-aggregator/pkg/client/informers/externalversions/apiregistration/v1"
 	"k8s.io/kube-aggregator/pkg/controllers/autoregister"
 	"k8s.io/kubernetes/pkg/controlplane/controller/crdregistration"
-	"open-cluster-management.io/multicluster-controlplane/pkg/apiserver/options"
 
-	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
-	ocmcontrollerresources "open-cluster-management.io/multicluster-controlplane/config/hub"
 	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller"
-	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/ocmcontroller"
+	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
 )
 
 func createAggregatorConfig(
 	kubeAPIServerConfig genericapiserver.Config,
-	commandOptions *options.ServerRunOptions,
+	genericOptions *options.ServerRunOptions,
 	externalInformers kubeexternalinformers.SharedInformerFactory,
 	serviceResolver aggregatorapiserver.ServiceResolver,
 	proxyTransport *http.Transport,
@@ -70,14 +63,14 @@ func createAggregatorConfig(
 	}
 
 	// copy the etcd options so we don't mutate originals.
-	etcdOptions := *commandOptions.Etcd
+	etcdOptions := *genericOptions.Etcd
 	etcdOptions.StorageConfig.Paging = utilfeature.DefaultFeatureGate.Enabled(genericfeatures.APIListChunking)
 	etcdOptions.StorageConfig.Codec = aggregatorscheme.Codecs.LegacyCodec(v1.SchemeGroupVersion, v1beta1.SchemeGroupVersion)
 	etcdOptions.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1.SchemeGroupVersion, schema.GroupKind{Group: v1beta1.GroupName})
 	genericConfig.RESTOptionsGetter = &genericoptions.SimpleRestOptionsFactory{Options: etcdOptions}
 
 	// override MergedResourceConfig with aggregator defaults and registry
-	if err := commandOptions.APIEnablement.ApplyTo(
+	if err := genericOptions.APIEnablement.ApplyTo(
 		&genericConfig,
 		aggregatorapiserver.DefaultAPIResourceConfigSource(),
 		aggregatorscheme.Scheme); err != nil {
@@ -115,8 +108,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 	autoRegistrationController := autoregister.NewAutoRegisterController(aggregatorServer.APIRegistrationInformers.Apiregistration().V1().APIServices(), apiRegistrationClient)
 	apiServices := apiServicesToRegister(delegateAPIServer, autoRegistrationController)
 	crdRegistrationController := crdregistration.NewCRDRegistrationController(
-		apiExtensionInformers.Apiextensions().V1().CustomResourceDefinitions(),
-		autoRegistrationController)
+		apiExtensionInformers.Apiextensions().V1().CustomResourceDefinitions(), autoRegistrationController)
 
 	err = aggregatorServer.GenericAPIServer.AddPostStartHook("kube-apiserver-autoregistration", func(context genericapiserver.PostStartHookContext) error {
 		go crdRegistrationController.Run(5, context.StopCh)
@@ -154,90 +146,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			if err != nil {
 				klog.Errorf("run kube controller error: %v", err)
 			}
-			klog.Infof("Finished bootstrapping kube controllers")
-		}()
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Setup apiextensions client
-	apiextensionsClient, err := apiextensionsclient.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	// Setup dynamic client
-	dynamicClient, err := dynamic.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	// Add PostStartHook to install ocm crds
-	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-registration-crd", func(context genericapiserver.PostStartHookContext) error {
-		// bootstrap ocm crd
-		if err := ocmcrds.Bootstrap(
-			goContext(context),
-			apiextensionsClient,
-			apiextensionsClient.Discovery(),
-			dynamicClient,
-		); err != nil {
-			klog.Errorf("failed to bootstrap ocm CRDs: %v", err)
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-		klog.Infof("Finished bootstrapping ocm CRDs")
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Setup kubenetes client
-	kubeClient, err := kubernetes.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
-	if err != nil {
-		return nil, err
-	}
-	// Add PostStartHook to install ocm hub resources
-	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-registration-resource", func(context genericapiserver.PostStartHookContext) error {
-		// bootstrap ocm hub resources
-		if err := ocmcontrollerresources.Bootstrap(
-			goContext(context),
-			aggregatorConfig.GenericConfig.Config,
-			apiextensionsClient.Discovery(),
-			dynamicClient,
-			kubeClient,
-		); err != nil {
-			klog.Errorf("failed to bootstrap ocm hub controller resources: %v", err)
-			// nolint:nilerr
-			return nil // don't klog.Fatal. This only happens when context is cancelled.
-		}
-
-		klog.Infof("Finished bootstrapping ocm hub resources")
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Add PostStartHook to install ocm controllers
-	err = aggregatorServer.GenericAPIServer.AddPostStartHook("multicluster-controlplane-controllers", func(context genericapiserver.PostStartHookContext) error {
-
-		// Start controllers
-		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
-		controllerConfig.ContentType = "application/json"
-
-		go func() {
-			if err := ocmcontroller.InstallOCMControllers(
-				goContext(context),
-				controllerConfig,
-				kubeClient,
-				aggregatorConfig.GenericConfig.SharedInformerFactory,
-			); err != nil {
-				klog.Errorf("failed to bootstrap ocm controllers: %v", err)
-			} else {
-				klog.Infof("Finished bootstrapping ocm controllers")
-			}
+			klog.Infof("finished bootstrapping kube controllers")
 		}()
 		return nil
 	})
@@ -371,16 +280,4 @@ func apiServicesToRegister(delegateAPIServer genericapiserver.DelegationTarget, 
 	}
 
 	return apiServices
-}
-
-// goContext turns the PostStartHookContext into a context.Context for use in routines that may or may not
-// run inside of a post-start-hook. The k8s APIServer wrote the post-start-hook context code before contexts
-// were part of the Go stdlib.
-func goContext(parent genericapiserver.PostStartHookContext) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func(done <-chan struct{}) {
-		<-done
-		cancel()
-	}(parent.StopCh)
-	return ctx
 }

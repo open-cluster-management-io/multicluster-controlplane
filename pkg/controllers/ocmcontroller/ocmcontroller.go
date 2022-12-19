@@ -4,18 +4,19 @@ package ocmcontroller
 import (
 	"context"
 	"net/http"
-	_ "net/http/pprof"
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/pkg/errors"
-	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/dynamic"
+	genericinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	kubeevents "k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
+	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
 	clusterv1client "open-cluster-management.io/api/client/cluster/clientset/versioned"
@@ -38,32 +39,59 @@ import (
 	"open-cluster-management.io/registration/pkg/hub/rbacfinalizerdeletion"
 	"open-cluster-management.io/registration/pkg/hub/taint"
 
+	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
 	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
 )
 
 var ResyncInterval = 5 * time.Minute
 
-func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
-	kubeClient kubernetes.Interface, kubeInfomers kubeinformers.SharedInformerFactory) error {
+func InstallControllers(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
+	klog.Info("bootstrapping ocm controllers")
+	go func() {
+		restConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
+		dynamicClient, err := dynamic.NewForConfig(restConfig)
+		if err != nil {
+			klog.Fatalf("failed to create dynamic client: %v", err)
+		}
+		ctx := GoContext(stopCh)
+		if ocmcrds.WaitForOcmCrdReady(ctx, dynamicClient) {
+			klog.Infof("ocm crd is ready!")
+		}
+		if err := RunControllers(ctx, restConfig, aggregatorConfig.GenericConfig.SharedInformerFactory); err != nil {
+			klog.Errorf("failed to bootstrap ocm controllers: %v", err)
+		} else {
+			klog.Infof("stopping ocm controllers")
+		}
+	}()
+	return nil
+}
+
+func RunControllers(ctx context.Context, restConfig *rest.Config, kubeInformers genericinformers.SharedInformerFactory,
+) error {
 	eventRecorder := events.NewInMemoryRecorder("registration-controller")
 
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
 	controllerContext := &controllercmd.ControllerContext{
-		KubeConfig:        kubeConfig,
+		KubeConfig:        restConfig,
 		EventRecorder:     eventRecorder,
 		OperatorNamespace: confighub.HubNamespace,
 	}
 
-	clusterClient, err := clusterv1client.NewForConfig(kubeConfig)
+	clusterClient, err := clusterv1client.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
 
-	workClient, err := workv1client.NewForConfig(kubeConfig)
+	workClient, err := workv1client.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
 
-	addOnClient, err := addonclient.NewForConfig(kubeConfig)
+	addOnClient, err := addonclient.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
@@ -95,7 +123,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 		if !v1CSRSupported && v1beta1CSRSupported {
 			csrController = csr.NewV1beta1CSRApprovingController(
 				kubeClient,
-				kubeInfomers.Certificates().V1beta1().CertificateSigningRequests(),
+				kubeInformers.Certificates().V1beta1().CertificateSigningRequests(),
 				controllerContext.EventRecorder,
 			)
 			klog.Info("Using v1beta1 CSR api to manage spoke client certificate")
@@ -104,7 +132,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 	if csrController == nil {
 		csrController = csr.NewCSRApprovingController(
 			kubeClient,
-			kubeInfomers.Certificates().V1().CertificateSigningRequests(),
+			kubeInformers.Certificates().V1().CertificateSigningRequests(),
 			controllerContext.EventRecorder,
 		)
 	}
@@ -113,15 +141,15 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 		kubeClient,
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
-		kubeInfomers.Coordination().V1().Leases(),
-		ResyncInterval, //TODO: this interval time should be allowed to change from outside
+		kubeInformers.Coordination().V1().Leases(),
+		ResyncInterval, // TODO: this interval time should be allowed to change from outside
 		controllerContext.EventRecorder,
 	)
 
 	rbacFinalizerController := rbacfinalizerdeletion.NewFinalizeController(
-		kubeInfomers.Rbac().V1().Roles(),
-		kubeInfomers.Rbac().V1().RoleBindings(),
-		kubeInfomers.Core().V1().Namespaces().Lister(),
+		kubeInformers.Rbac().V1().Roles(),
+		kubeInformers.Rbac().V1().RoleBindings(),
+		kubeInformers.Core().V1().Namespaces().Lister(),
 		clusterInformers.Cluster().V1().ManagedClusters().Lister(),
 		workInformers.Work().V1().ManifestWorks().Lister(),
 		kubeClient.RbacV1(),
@@ -145,7 +173,7 @@ func InstallOCMControllers(ctx context.Context, kubeConfig *rest.Config,
 	clusterroleController := clusterrole.NewManagedClusterClusterroleController(
 		kubeClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
-		kubeInfomers.Rbac().V1().ClusterRoles(),
+		kubeInformers.Rbac().V1().ClusterRoles(),
 		controllerContext.EventRecorder,
 	)
 
