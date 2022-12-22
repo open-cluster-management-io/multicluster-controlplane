@@ -14,7 +14,7 @@ fi
 
 export ETCD_NS=${ETCD_NS:-"multicluster-controlplane-etcd"}
 
-IMAGE_NAME=${IMAGE_NAME:-"quay.io/coreos/etcd"}
+ETCD_IMAGE_NAME=${ETCD_IMAGE_NAME:-"quay.io/coreos/etcd"}
 REUSE_CA=${REUSE_CA:-false}
 
 if [[ "${REUSE_CA}" != true ]]; then
@@ -56,7 +56,7 @@ if [[ "${REUSE_CA}" != true ]]; then
 fi
 
 cp hack/deploy/etcd/kustomization.yaml  hack/deploy/etcd/kustomization.yaml.tmp
-cd hack/deploy/etcd && ${KUSTOMIZE} edit set namespace ${ETCD_NS} && ${KUSTOMIZE} edit set image quay.io/coreos/etcd=${IMAGE_NAME}
+cd hack/deploy/etcd && ${KUSTOMIZE} edit set namespace ${ETCD_NS} && ${KUSTOMIZE} edit set image quay.io/coreos/etcd=${ETCD_IMAGE_NAME}
 cd ../../../
 ${KUSTOMIZE} build ${KUBE_ROOT}/hack/deploy/etcd | ${KUBECTL} apply -f -
 mv hack/deploy/etcd/kustomization.yaml.tmp hack/deploy/etcd/kustomization.yaml
