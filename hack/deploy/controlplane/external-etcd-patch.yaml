@@ -37,16 +37,17 @@ spec:
           - "--service-account-issuer=https://kubernetes.default.svc"
           - "--external-hostname=API_HOST"
         volumeMounts:
-        - name: controlplane-cert
-          mountPath: /controlplane/cert
-          readOnly: true
+        - $patch: delete
+          mountPath: /.ocmconfig
+          name: ocmconfig 
         - name: etcdconfig 
           mountPath: /controlplane/etcdconfig
           readOnly: true
       volumes:
-      - name: controlplane-cert
-        secret:
-          secretName: controlplane-cert
+      - $patch: delete
+        name: ocmconfig 
+        persistentVolumeClaim:
+          claimName: multicluster-controlplane-pvc-volume
       - name: etcdconfig 
         secret:
           secretName: cert-etcd    

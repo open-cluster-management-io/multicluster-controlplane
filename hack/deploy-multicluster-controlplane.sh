@@ -183,6 +183,8 @@ function start_apiserver {
         sed -i "s,storage-prefix,${HUB_NAME},g" hack/deploy/controlplane/external-etcd-patch.yaml
         sed -i "s,API_HOST,${API_HOST},g" hack/deploy/controlplane/external-etcd-patch.yaml
         
+        # remove pvc.yaml 
+        sed -i "$(sed -n  '/- pvc.yaml/=' hack/deploy/controlplane/kustomization.yaml)d" hack/deploy/controlplane/kustomization.yaml
         # apply patch
         sed -i '$a \patches:' hack/deploy/controlplane/kustomization.yaml
         sed -i '$a \  - external-etcd-patch.yaml' hack/deploy/controlplane/kustomization.yaml
@@ -193,7 +195,7 @@ function start_apiserver {
         sed -i "$(sed -n  '/secretGenerator/=' hack/deploy/controlplane/kustomization.yaml) a \  files:" hack/deploy/controlplane/kustomization.yaml
         sed -i "$(sed -n  '/secretGenerator/=' hack/deploy/controlplane/kustomization.yaml) a - name: cert-etcd" hack/deploy/controlplane/kustomization.yaml
     else
-        sed -e 's,API_HOST,'${API_HOST}',' hack/deploy/controlplane/deployment.yaml
+        sed -i 's,API_HOST,'${API_HOST}',' hack/deploy/controlplane/deployment.yaml
     fi
     
     cd hack/deploy/controlplane && ${KUSTOMIZE} edit set namespace ${HUB_NAME} && ${KUSTOMIZE} edit set image quay.io/open-cluster-management/multicluster-controlplane=${IMAGE_NAME}

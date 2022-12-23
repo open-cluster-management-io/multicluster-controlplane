@@ -62,5 +62,5 @@ spec:
         secret:
           secretName: controlplane-cert
       - name: ocmconfig 
-        emptyDir:
-          sizeLimit: 500Mi
+        persistentVolumeClaim:
+          claimName: multicluster-controlplane-pvc-volume
