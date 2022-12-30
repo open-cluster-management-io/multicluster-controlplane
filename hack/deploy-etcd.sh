@@ -1,7 +1,7 @@
 #!/bin/bash
 
 KUBE_ROOT=$(pwd)
-KUBECTL=${KUBECTL:-"oc"}
+KUBECTL=${KUBECTL:-"kubectl"}
 KUSTOMIZE=${KUSTOMIZE:-"kustomize"}
 if [ ! $KUBECTL >& /dev/null ] ; then
       echo "Failed to run $KUBECTL. Please ensure $KUBECTL is installed"
@@ -18,15 +18,15 @@ ETCD_IMAGE_NAME=${ETCD_IMAGE_NAME:-"quay.io/coreos/etcd"}
 REUSE_CA=${REUSE_CA:-false}
 
 if [[ "${REUSE_CA}" != true ]]; then
-    if [ ! go >& /dev/null ] ; then
+    if ! command -v go >/dev/null; then
         echo "go found"
         exit 1
     fi
-    if [ ! cfssl >& /dev/null ] ; then
+    if ! command -v cfssl >/dev/null; then
         echo "cfssl not found, installing..."
         go install github.com/cloudflare/cfssl/cmd/cfssl@latest
     fi
-    if [ ! cfssljson >& /dev/null ] ; then
+    if ! command -v cfssljson >& /dev/null; then
         echo "cfssljson not found, installing..."
         go install github.com/cloudflare/cfssl/cmd/cfssljson@latest
     fi

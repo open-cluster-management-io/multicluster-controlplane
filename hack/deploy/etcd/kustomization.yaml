@@ -6,8 +6,12 @@ resources:
 - statefulset.yaml
 
 secretGenerator:
-- name: trusted-ca
-  files:
+- files:
   - cert-etcd/ca.pem
+  name: trusted-ca
 generatorOptions:
   disableNameSuffixHash: true
+namespace: multicluster-controlplane-etcd
+images:
+- name: quay.io/coreos/etcd
+  newName: quay.io/coreos/etcd
