@@ -180,7 +180,7 @@ function start_apiserver {
             ETCD_SERVICE=${ETCD_SERVICE}",http://etcd-"$i".etcd.${ETCD_NS}:2379"
         done
         sed -i "s@http://127.0.0.1:2379@${ETCD_SERVICE}@g" hack/deploy/controlplane/external-etcd-patch.yaml
-        sed -i "s,storage-prefix,${HUB_NAME},g" hack/deploy/controlplane/external-etcd-patch.yaml
+        sed -i "s,multicluster-controlplane-etcd-prefix,${HUB_NAME},g" hack/deploy/controlplane/external-etcd-patch.yaml
         sed -i "s,API_HOST,${API_HOST},g" hack/deploy/controlplane/external-etcd-patch.yaml
         
         # remove pvc.yaml 

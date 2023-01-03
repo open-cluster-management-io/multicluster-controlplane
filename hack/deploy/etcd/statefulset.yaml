@@ -41,13 +41,13 @@ spec:
             for i in $(seq 0 $((${CLUSTER_SIZE} - 1))); do
               while true; do
                 echo "Waiting for ${SET_NAME}-${i}.${SET_NAME} to come up"
-                ping -W 1 -c 1 ${SET_NAME}-${i}.${SET_NAME}.${NAMESPACE}.svc.cluster.local > /dev/null && break
+                ping -W 1 -c 1 ${SET_NAME}-${i}.${SET_NAME}.${NAMESPACE}.svc > /dev/null && break
                 sleep 1s
               done
             done
             PEERS=""
             for i in $(seq 0 $((${CLUSTER_SIZE} - 1))); do
-                PEERS="${PEERS}${PEERS:+,}${SET_NAME}-${i}=http://${SET_NAME}-${i}.${SET_NAME}.${NAMESPACE}.svc.cluster.local:2380"
+                PEERS="${PEERS}${PEERS:+,}${SET_NAME}-${i}=http://${SET_NAME}-${i}.${SET_NAME}.${NAMESPACE}.svc:2380"
             done
             # start etcd. If cluster is already initialized the `--initial-*` options will be ignored.
             exec etcd --name ${HOSTNAME} \

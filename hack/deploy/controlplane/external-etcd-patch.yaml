@@ -32,10 +32,11 @@ spec:
           - "--etcd-cafile=/controlplane/etcdconfig/ca.pem"
           - "--etcd-certfile=/controlplane/etcdconfig/client.pem"
           - "--etcd-keyfile=/controlplane/etcdconfig/client-key.pem"
-          - "--etcd-prefix=/multicluster-controlplane-test-1"
+          - "--etcd-prefix=/multicluster-controlplane-etcd-prefix"
           - "--service-cluster-ip-range=10.0.0.0/24"
           - "--service-account-issuer=https://kubernetes.default.svc"
           - "--external-hostname=API_HOST"
+          - "--profiling=false"
         volumeMounts:
         - $patch: delete
           mountPath: /.ocmconfig
