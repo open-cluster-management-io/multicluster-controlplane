@@ -49,6 +49,7 @@ func InstallControllers(stopCh <-chan struct{}, aggregatorConfig *aggregatorapis
 	klog.Info("bootstrapping ocm controllers")
 	go func() {
 		restConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
+		restConfig.ContentType = "application/json"
 		dynamicClient, err := dynamic.NewForConfig(restConfig)
 		if err != nil {
 			klog.Fatalf("failed to create dynamic client: %v", err)
@@ -57,7 +58,7 @@ func InstallControllers(stopCh <-chan struct{}, aggregatorConfig *aggregatorapis
 		if ocmcrds.WaitForOcmCrdReady(ctx, dynamicClient) {
 			klog.Infof("ocm crd is ready!")
 		}
-		if err := RunControllers(ctx, restConfig, aggregatorConfig.GenericConfig.SharedInformerFactory); err != nil {
+		if err := runControllers(ctx, restConfig, aggregatorConfig.GenericConfig.SharedInformerFactory); err != nil {
 			klog.Errorf("failed to bootstrap ocm controllers: %v", err)
 		} else {
 			klog.Infof("stopping ocm controllers")
@@ -66,7 +67,7 @@ func InstallControllers(stopCh <-chan struct{}, aggregatorConfig *aggregatorapis
 	return nil
 }
 
-func RunControllers(ctx context.Context, restConfig *rest.Config, kubeInformers genericinformers.SharedInformerFactory,
+func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers genericinformers.SharedInformerFactory,
 ) error {
 	eventRecorder := events.NewInMemoryRecorder("registration-controller")
 
