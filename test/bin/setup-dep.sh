@@ -45,7 +45,21 @@ function check_ginkgo() {
   echo "ginkgo version: $(ginkgo version)"
 }
 
+function check_cfssl() {
+  if ! command -v cfssl >/dev/null 2>&1; then 
+    curl --retry 10 -L -o cfssl https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssl_1.5.0_linux_amd64
+    chmod +x cfssl || true
+    sudo mv cfssl ${bin_dir}/cfssl
+  fi 
+  if ! command -v cfssljson >/dev/null 2>&1; then 
+    curl --retry 10 -L -o cfssljson https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssljson_1.5.0_linux_amd64
+    chmod +x cfssljson || true
+    sudo mv cfssljson ${bin_dir}/cfssljson
+  fi 
+}
+
 check_kubectl
 check_kustomize
 check_clusteradm
 check_ginkgo
+check_cfssl

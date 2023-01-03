@@ -1,7 +1,7 @@
 #!/bin/bash
 
 KUBE_ROOT=$(pwd)
-KUBECTL=${KUBECTL:-"oc"}
+KUBECTL=${KUBECTL:-"kubectl"}
 KUSTOMIZE=${KUSTOMIZE:-"kustomize"}
 if [ ! $KUBECTL >& /dev/null ] ; then
       echo "Failed to run $KUBECTL. Please ensure $KUBECTL is installed"

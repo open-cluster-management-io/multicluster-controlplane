@@ -12,6 +12,7 @@ number=${CONTROLPLANE_NUMBER:-1}
 # it's useful with PRESERVE_ETCD=true because new ca will make existed service account secrets invalided
 reuse_certs=${REUSE_CERTS:-false}
 certs_dir=${CERT_DIR:-"$project_dir/test/resources/cert"}
+etcdns=${ETCD_NS:-"multicluster-controlplane-etcd"}
 
 source "$project_dir/test/bin/util.sh"
 
@@ -30,6 +31,12 @@ wait
 external_host_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${hosting_cluster}-control-plane)
 export KUBECONFIG=$kubeconfig_dir/$hosting_cluster
 
+# external etcd in kind
+cp $project_dir/hack/deploy/etcd/statefulset.yaml $project_dir/hack/deploy/etcd/statefulset.yaml.tmp
+sed -i "s/gp2/standard/g" $project_dir/hack/deploy/etcd/statefulset.yaml
+cd $project_dir && make deploy-etcd
+mv $project_dir/hack/deploy/etcd/statefulset.yaml.tmp $project_dir/hack/deploy/etcd/statefulset.yaml
+
 for i in $(seq 1 "${number}"); do
 
   namespace=controlplane$i && ($KUBECTL get ns $namespace || $KUBECTL create ns $namespace)
@@ -46,11 +53,32 @@ for i in $(seq 1 "${number}"); do
   fi
 
   cp -r $project_dir/hack/deploy/controlplane/* $deploy_dir
+
+  # expose apiserver
   sed -i "s/API_HOST/${external_host_ip}/" $deploy_dir/deployment.yaml
   sed -i 's/ClusterIP/NodePort/' $deploy_dir/service.yaml
   sed -i '/route\.yaml/d' $deploy_dir/kustomization.yaml
   sed -i "/targetPort.*/a  \ \ \ \ \ \ nodePort: $external_host_port" $deploy_dir/service.yaml
 
+  # setup external etcd 
+  sed -i '/pvc\.yaml/d' $deploy_dir/kustomization.yaml
+  sed -i '/disableNameSuffixHash.*/a patches:' $deploy_dir/kustomization.yaml
+  sed -i '/patches.*/a \ \ - external-etcd-patch.yaml' $deploy_dir/kustomization.yaml
+  sed -i '/^secretGenerator.*/a \ \ - cert-etcd/client-key.pem' $deploy_dir/kustomization.yaml
+  sed -i '/^secretGenerator.*/a \ \ - cert-etcd/client.pem' $deploy_dir/kustomization.yaml
+  sed -i '/^secretGenerator.*/a \ \ - cert-etcd/ca.pem' $deploy_dir/kustomization.yaml
+  sed -i '/^secretGenerator.*/a \ \ files:' $deploy_dir/kustomization.yaml
+  sed -i '/^secretGenerator.*/a - name: cert-etcd' $deploy_dir/kustomization.yaml
+  etcd_size=$(${KUBECTL} -n ${etcdns} get statefulset.apps/etcd -o jsonpath='{.spec.replicas}')
+  etcd_services=http://etcd-0.etcd.${etcdns}:2379
+  for((i=1;i<$etcd_size;i++))
+  do
+    etcd_services=${etcd_services}",http://etcd-"$i".etcd.${etcdns}:2379"
+  done
+  sed -i "s@http://127.0.0.1:2379@${etcd_services}@g" $deploy_dir/external-etcd-patch.yaml
+  sed -i "s/--etcd-prefix=.*/--etcd-prefix=${namespace}\"/g" $deploy_dir/external-etcd-patch.yaml
+  sed -i "s/API_HOST/${external_host_ip}/g" $deploy_dir/external-etcd-patch.yaml
+        
   # deploy the controplane
   cd $deploy_dir
   $KUSTOMIZE edit set namespace $namespace 
