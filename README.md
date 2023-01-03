@@ -3,7 +3,7 @@
 
 ## Install multicluster-controlplane
 
-### Option 1: Deploy multicluster-controlplane with embed etdcd on Openshift Cluster
+### Option 1: Deploy multicluster-controlplane with embed etcd on Openshift Cluster
 
 #### Build image
 
