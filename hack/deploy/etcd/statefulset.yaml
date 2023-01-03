@@ -75,7 +75,7 @@ spec:
   - metadata:
       name: multicluster-config
     spec:
-      storageClassName: gp2
+      storageClassName: standard
       accessModes:
         - "ReadWriteOnce"
       resources:
