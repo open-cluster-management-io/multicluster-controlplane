@@ -65,7 +65,6 @@ function check_multicluster-etcd {
     for i in {1..50}; do
         echo "Checking multicluster-etcd..."
         RESULT=$(${KUBECTL} -n ${ETCD_NS} exec etcd-0 -- etcdctl cluster-health | tail -n1)
-        echo "checking result #$RESULT#"
         if [[ "${RESULT}" = "cluster is healthy" ]]; then
             echo "#### multicluster-etcd ${ETCD_NS} is ready ####"
             break
