@@ -70,7 +70,7 @@ function check_multicluster-etcd {
             break
         fi
         
-        if [ $i -eq 30 ]; then
+        if [ $i -eq 50 ]; then
             echo "!!!!!!!!!!  the multicluster-etcd ${ETCD_NS} is not ready within 100s"
             ${KUBECTL} -n ${ETCD_NS} get pods
             
