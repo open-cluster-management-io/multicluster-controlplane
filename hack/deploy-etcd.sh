@@ -62,16 +62,16 @@ ${KUSTOMIZE} build ${KUBE_ROOT}/hack/deploy/etcd | ${KUBECTL} apply -f -
 mv hack/deploy/etcd/kustomization.yaml.tmp hack/deploy/etcd/kustomization.yaml
 
 function check_multicluster-etcd {
-    for i in {1..20}; do
+    for i in {1..50}; do
         echo "Checking multicluster-etcd..."
         RESULT=$(${KUBECTL} -n ${ETCD_NS} exec etcd-0 -- etcdctl cluster-health | tail -n1)
-        if [  "${RESULT}" = "cluster is healthy" ]; then
+        if [[ "${RESULT}" = "cluster is healthy" ]]; then
             echo "#### multicluster-etcd ${ETCD_NS} is ready ####"
             break
         fi
         
-        if [ $i -eq 20 ]; then
-            echo "!!!!!!!!!!  the multicluster-etcd ${ETCD_NS} is not ready within 60s"
+        if [ $i -eq 50 ]; then
+            echo "!!!!!!!!!!  the multicluster-etcd ${ETCD_NS} is not ready within 100s"
             ${KUBECTL} -n ${ETCD_NS} get pods
             
             exit 1
