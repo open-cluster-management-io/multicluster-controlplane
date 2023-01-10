@@ -181,6 +181,7 @@ var _ ControllerInitializersFunc = NewControllerInitializers
 func NewControllerInitializers() map[string]InitFunc {
 	controllers := map[string]InitFunc{}
 	controllers["namespace"] = startNamespaceController
+	controllers["serviceaccount"] = startServiceAccountController
 	controllers["garbagecollector"] = startGarbageCollectorController
 	controllers["csrsigning"] = startCSRSigningController
 	controllers["csrapproving"] = startCSRApprovingController
