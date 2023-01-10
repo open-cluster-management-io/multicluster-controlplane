@@ -207,6 +207,7 @@ function start_apiserver {
     --service-account-lookup="${SERVICE_ACCOUNT_LOOKUP}" \
     --service-account-issuer="https://kubernetes.default.svc" \
     --service-account-signing-key-file="${SERVICE_ACCOUNT_KEY}" \
+    --service-account-private-key-file="${SERVICE_ACCOUNT_KEY}" \
     --enable-admission-plugins="${ENABLE_ADMISSION_PLUGINS}" \
     --disable-admission-plugins="${DISABLE_ADMISSION_PLUGINS}" \
     --bind-address="${API_BIND_ADDR}" \
