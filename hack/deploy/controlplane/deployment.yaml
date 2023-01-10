@@ -32,6 +32,7 @@ spec:
           - "--v=1"
           - "--service-account-lookup=false"
           - "--service-account-signing-key-file=/controlplane/cert/kube-serviceaccount.key"
+          - "--service-account-private-key-file=/controlplane/cert/kube-serviceaccount.key"
           - "--enable-admission-plugins=NamespaceLifecycle,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ManagedClusterMutating,ManagedClusterValidating,ManagedClusterSetBindingValidating"
           - "--bind-address=0.0.0.0"
           - "--secure-port=9443"

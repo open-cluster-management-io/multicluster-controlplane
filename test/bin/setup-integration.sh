@@ -44,6 +44,7 @@ function start_apiserver {
     --service-account-lookup="true" \
     --service-account-issuer="https://kubernetes.default.svc" \
     --service-account-signing-key-file="${service_account_key}" \
+    --service-account-private-key-file="${service_account_key}" \
     --enable-admission-plugins="NamespaceLifecycle,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,ManagedClusterMutating,ManagedClusterValidating,ManagedClusterSetBindingValidating" \
     --disable-admission-plugins="" \
     --bind-address="0.0.0.0" \
