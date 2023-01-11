@@ -34,6 +34,7 @@ import (
 	"k8s.io/kubernetes/pkg/controlplane/controller/crdregistration"
 
 	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller"
+	kubectrmgroptions "open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/options"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
 )
 
@@ -94,7 +95,7 @@ func createAggregatorConfig(
 	return aggregatorConfig, nil
 }
 
-func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget, apiExtensionInformers apiextensionsinformers.SharedInformerFactory, clientCert, clientKey string) (*aggregatorapiserver.APIAggregator, error) {
+func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget, apiExtensionInformers apiextensionsinformers.SharedInformerFactory, clientCert, clientKey string, kubeControllerManagerOptions *kubectrmgroptions.KubeControllerManagerOptions) (*aggregatorapiserver.APIAggregator, error) {
 	aggregatorServer, err := aggregatorConfig.Complete().NewWithDelegate(delegateAPIServer)
 	if err != nil {
 		return nil, err
@@ -142,7 +143,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 	err = aggregatorServer.GenericAPIServer.AddPostStartHook("kube-controller", func(context genericapiserver.PostStartHookContext) error {
 		controllerConfig := rest.CopyConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
 		go func() {
-			err := kubecontroller.RunKubeControllers(controllerConfig, aggregatorConfig.GenericConfig.SharedInformerFactory, clientCert, clientKey)
+			err := kubecontroller.RunKubeControllers(kubeControllerManagerOptions, controllerConfig, aggregatorConfig.GenericConfig.SharedInformerFactory, clientCert, clientKey)
 			if err != nil {
 				klog.Errorf("run kube controller error: %v", err)
 			}

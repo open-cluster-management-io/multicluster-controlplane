@@ -11,9 +11,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/apiserver/pkg/server/mux"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/informers"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -22,7 +24,9 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	certutil "k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/keyutil"
 	"k8s.io/component-base/configz"
+	genericcontrollermanager "k8s.io/controller-manager/app"
 	"k8s.io/controller-manager/controller"
 	"k8s.io/controller-manager/pkg/clientbuilder"
 	controllerhealthz "k8s.io/controller-manager/pkg/healthz"
@@ -33,6 +37,9 @@ import (
 	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/options"
 
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
+	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
+	kubefeatures "k8s.io/kubernetes/pkg/features"
+	"k8s.io/kubernetes/pkg/serviceaccount"
 )
 
 const (
@@ -52,12 +59,7 @@ const (
 	ExternalLoops
 )
 
-func RunKubeControllers(cfg *restclient.Config, sharedInformers informers.SharedInformerFactory, clientCert, clientKey string) error {
-	s, err := options.NewKubeControllerManagerOptions()
-	if err != nil {
-		klog.Fatalf("unable to initialize kube options: %v", err)
-	}
-
+func RunKubeControllers(s *options.KubeControllerManagerOptions, cfg *restclient.Config, sharedInformers informers.SharedInformerFactory, clientCert, clientKey string) error {
 	s.CSRSigningController.ClusterSigningCertFile = clientCert
 	s.CSRSigningController.ClusterSigningKeyFile = clientKey
 
@@ -102,13 +104,15 @@ func Run(c *config.CompletedConfig, sharedInformers informers.SharedInformerFact
 
 	clientBuilder, rootClientBuilder := createClientBuilders(c)
 
-	run := func(ctx context.Context, initializersFunc ControllerInitializersFunc) {
+	saTokenControllerInitFunc := serviceAccountTokenControllerStarter{rootClientBuilder: rootClientBuilder}.startServiceAccountTokenController
+
+	run := func(ctx context.Context, startSATokenController InitFunc, initializersFunc ControllerInitializersFunc) {
 		controllerContext, err := CreateControllerContext(c, rootClientBuilder, clientBuilder, sharedInformers, ctx.Done())
 		if err != nil {
 			klog.Fatalf("error building controller context: %v", err)
 		}
 		controllerInitializers := initializersFunc()
-		if err := StartControllers(ctx, controllerContext, controllerInitializers, unsecuredMux, healthzHandler); err != nil {
+		if err := StartControllers(ctx, controllerContext, startSATokenController, controllerInitializers, unsecuredMux, healthzHandler); err != nil {
 			klog.Fatalf("error starting controllers: %v", err)
 		}
 
@@ -121,7 +125,7 @@ func Run(c *config.CompletedConfig, sharedInformers informers.SharedInformerFact
 
 	// No leader election, run directly
 	ctx, _ := ContextForChannel(stopCh)
-	run(ctx, NewControllerInitializers)
+	run(ctx, saTokenControllerInitFunc, NewControllerInitializers)
 	return nil
 }
 
@@ -160,6 +164,11 @@ type ControllerContext struct {
 	ResyncPeriod func() time.Duration
 }
 
+// IsControllerEnabled checks if the context's controllers enabled or not
+func (c ControllerContext) IsControllerEnabled(name string) bool {
+	return genericcontrollermanager.IsControllerEnabled(name, ControllersDisabledByDefault, c.ComponentConfig.Generic.Controllers)
+}
+
 // InitFunc is used to launch a particular controller. It returns a controller
 // that can optionally implement other interfaces so that the controller manager
 // can support the requested features.
@@ -175,6 +184,16 @@ type InitFunc func(ctx context.Context, controllerCtx ControllerContext) (contro
 type ControllerInitializersFunc func() (initializers map[string]InitFunc)
 
 var _ ControllerInitializersFunc = NewControllerInitializers
+
+// ControllersDisabledByDefault is the set of controllers which is disabled by default
+var ControllersDisabledByDefault = sets.NewString(
+	"bootstrapsigner",
+	"tokencleaner",
+)
+
+const (
+	saTokenControllerName = "serviceaccount-token"
+)
 
 // NewControllerInitializers is a public map of named controller groups (you can start more than one in an init func)
 // paired to their InitFunc.  This allows for structured downstream composition and subdivision.
@@ -258,8 +277,15 @@ func CreateControllerContext(s *config.CompletedConfig, rootClientBuilder, clien
 }
 
 // StartControllers starts a set of controllers with a specified ControllerContext
-func StartControllers(ctx context.Context, controllerCtx ControllerContext, controllers map[string]InitFunc,
+func StartControllers(ctx context.Context, controllerCtx ControllerContext, startSATokenController InitFunc, controllers map[string]InitFunc,
 	unsecuredMux *mux.PathRecorderMux, healthzHandler *controllerhealthz.MutableHealthzHandler) error {
+	// Always start the SA token controller first using a full-power client, since it needs to mint tokens for the rest
+	// If this fails, just return here and fail since other controllers won't be able to get credentials.
+	if startSATokenController != nil {
+		if _, _, err := startSATokenController(ctx, controllerCtx); err != nil {
+			return err
+		}
+	}
 
 	var controllerChecks []healthz.HealthChecker
 
@@ -311,6 +337,62 @@ func createClientBuilders(c *config.CompletedConfig) (clientBuilder clientbuilde
 	}
 	clientBuilder = rootClientBuilder
 	return
+}
+
+// serviceAccountTokenControllerStarter is special because it must run first to set up permissions for other controllers.
+// It cannot use the "normal" client builder, so it tracks its own. It must also avoid being included in the "normal"
+// init map so that it can always run first.
+type serviceAccountTokenControllerStarter struct {
+	rootClientBuilder clientbuilder.ControllerClientBuilder
+}
+
+func (c serviceAccountTokenControllerStarter) startServiceAccountTokenController(ctx context.Context, controllerContext ControllerContext) (controller.Interface, bool, error) {
+	if !controllerContext.IsControllerEnabled(saTokenControllerName) {
+		klog.Warningf("%q is disabled", saTokenControllerName)
+		return nil, false, nil
+	}
+
+	if len(controllerContext.ComponentConfig.SAController.ServiceAccountKeyFile) == 0 {
+		klog.Warningf("%q is disabled because there is no private key", saTokenControllerName)
+		return nil, false, nil
+	}
+	privateKey, err := keyutil.PrivateKeyFromFile(controllerContext.ComponentConfig.SAController.ServiceAccountKeyFile)
+	if err != nil {
+		return nil, true, fmt.Errorf("error reading key for service account token controller: %v", err)
+	}
+
+	var rootCA []byte
+	if controllerContext.ComponentConfig.SAController.RootCAFile != "" {
+		if rootCA, err = readCA(controllerContext.ComponentConfig.SAController.RootCAFile); err != nil {
+			return nil, true, fmt.Errorf("error parsing root-ca-file at %s: %v", controllerContext.ComponentConfig.SAController.RootCAFile, err)
+		}
+	} else {
+		rootCA = c.rootClientBuilder.ConfigOrDie("tokens-controller").CAData
+	}
+
+	tokenGenerator, err := serviceaccount.JWTTokenGenerator(serviceaccount.LegacyIssuer, privateKey)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to build token generator: %v", err)
+	}
+	controller, err := serviceaccountcontroller.NewTokensController(
+		controllerContext.InformerFactory.Core().V1().ServiceAccounts(),
+		controllerContext.InformerFactory.Core().V1().Secrets(),
+		c.rootClientBuilder.ClientOrDie("tokens-controller"),
+		serviceaccountcontroller.TokensControllerOptions{
+			TokenGenerator: tokenGenerator,
+			RootCA:         rootCA,
+			AutoGenerate:   !utilfeature.DefaultFeatureGate.Enabled(kubefeatures.LegacyServiceAccountTokenNoAutoGeneration),
+		},
+	)
+	if err != nil {
+		return nil, true, fmt.Errorf("error creating Tokens controller: %v", err)
+	}
+	go controller.Run(int(controllerContext.ComponentConfig.SAController.ConcurrentSATokenSyncs), ctx.Done())
+
+	// start the first set of informers now so that other controllers can start
+	controllerContext.InformerFactory.Start(ctx.Done())
+
+	return nil, true, nil
 }
 
 func readCA(file string) ([]byte, error) {
