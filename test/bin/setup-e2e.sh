@@ -31,6 +31,9 @@ wait
 external_host_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${hosting_cluster}-control-plane)
 export KUBECONFIG=$kubeconfig_dir/$hosting_cluster
 
+# load controlplane image to the hosting cluster
+kind load docker-image $IMAGE_NAME --name $hosting_cluster
+
 # external etcd in kind
 cp $project_dir/hack/deploy/etcd/statefulset.yaml $project_dir/hack/deploy/etcd/statefulset.yaml.tmp
 sed -i "s/gp2/standard/g" $project_dir/hack/deploy/etcd/statefulset.yaml

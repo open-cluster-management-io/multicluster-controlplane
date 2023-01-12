@@ -122,8 +122,8 @@ jobs:
       - name: Setup controlplanes on KinD cluster
         run: |
           make setup-e2e
-        env: 
-          CONTROLPLANE_IMAGE: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}
+        env:
+          IMAGE_NAME: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}
       - name: Run e2e test
         run: |
           make test-e2e
