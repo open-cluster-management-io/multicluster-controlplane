@@ -31,6 +31,7 @@ type KubeControllerManagerOptions struct {
 	CSRSigningController       *CSRSigningControllerOptions
 	GarbageCollectorController *GarbageCollectorControllerOptions
 	NamespaceController        *NamespaceControllerOptions
+	SAController               *SAControllerOptions
 
 	Metrics *metrics.Options
 	Logs    *logs.Options
@@ -56,6 +57,9 @@ func NewKubeControllerManagerOptions() (*KubeControllerManagerOptions, error) {
 		},
 		NamespaceController: &NamespaceControllerOptions{
 			&componentConfig.NamespaceController,
+		},
+		SAController: &SAControllerOptions{
+			&componentConfig.SAController,
 		},
 		Metrics: metrics.NewOptions(),
 		Logs:    logs.NewOptions(),
@@ -90,6 +94,7 @@ func (s *KubeControllerManagerOptions) Flags() cliflag.NamedFlagSets {
 	s.CSRSigningController.AddFlags(fss.FlagSet("csrsigning controller"))
 	s.GarbageCollectorController.AddFlags(fss.FlagSet("garbagecollector controller"))
 	s.NamespaceController.AddFlags(fss.FlagSet("namespace controller"))
+	s.SAController.AddFlags(fss.FlagSet("serviceaccount controller"))
 
 	return fss
 }
@@ -109,6 +114,9 @@ func (s *KubeControllerManagerOptions) ApplyTo(c *kubecontrollerconfig.Config) e
 	if err := s.NamespaceController.ApplyTo(&c.ComponentConfig.NamespaceController); err != nil {
 		return err
 	}
+	if err := s.SAController.ApplyTo(&c.ComponentConfig.SAController); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -120,6 +128,7 @@ func (s *KubeControllerManagerOptions) Validate() error {
 	errs = append(errs, s.CSRSigningController.Validate()...)
 	errs = append(errs, s.GarbageCollectorController.Validate()...)
 	errs = append(errs, s.NamespaceController.Validate()...)
+	errs = append(errs, s.SAController.Validate()...)
 
 	return utilerrors.NewAggregate(errs)
 }

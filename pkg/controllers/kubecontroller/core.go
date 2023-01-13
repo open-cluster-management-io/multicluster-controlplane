@@ -14,6 +14,7 @@ import (
 	"k8s.io/controller-manager/controller"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 	namespacecontroller "k8s.io/kubernetes/pkg/controller/namespace"
+	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 )
 
 func startNamespaceController(ctx context.Context, controllerContext ControllerContext) (controller.Interface, bool, error) {
@@ -46,6 +47,20 @@ func startModifiedNamespaceController(ctx context.Context, controllerContext Con
 	)
 	go namespaceController.Run(int(controllerContext.ComponentConfig.NamespaceController.ConcurrentNamespaceSyncs), ctx.Done())
 
+	return nil, true, nil
+}
+
+func startServiceAccountController(ctx context.Context, controllerContext ControllerContext) (controller.Interface, bool, error) {
+	sac, err := serviceaccountcontroller.NewServiceAccountsController(
+		controllerContext.InformerFactory.Core().V1().ServiceAccounts(),
+		controllerContext.InformerFactory.Core().V1().Namespaces(),
+		controllerContext.ClientBuilder.ClientOrDie("service-account-controller"),
+		serviceaccountcontroller.DefaultServiceAccountsControllerOptions(),
+	)
+	if err != nil {
+		return nil, true, fmt.Errorf("error creating ServiceAccount controller: %v", err)
+	}
+	go sac.Run(ctx, 1)
 	return nil, true, nil
 }
 

@@ -46,6 +46,7 @@ import (
 	kubeletclient "k8s.io/kubernetes/pkg/kubelet/client"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 	netutils "k8s.io/utils/net"
+	kubectrmgroptions "open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/options"
 	"open-cluster-management.io/multicluster-controlplane/pkg/etcd"
 )
 
@@ -88,6 +89,8 @@ type ServerRunOptions struct {
 
 	KubeletConfig kubeletclient.KubeletClientConfig
 	ExtraOptions  *ExtraOptions
+
+	KubeControllerManagerOptions *kubectrmgroptions.KubeControllerManagerOptions
 }
 
 type ExtraOptions struct {
@@ -108,6 +111,11 @@ func NewServerRunOptions() *ServerRunOptions {
 			PairName:      "apiserver",
 			CertDirectory: "/var/run/kubernetes",
 		},
+	}
+
+	kubeControllerManagerOptions, err := kubectrmgroptions.NewKubeControllerManagerOptions()
+	if err != nil {
+		klog.Fatalf("unable to initialize kube controller manager options: %v", err)
 	}
 
 	return &ServerRunOptions{
@@ -148,6 +156,7 @@ func NewServerRunOptions() *ServerRunOptions {
 		ExtraOptions: &ExtraOptions{
 			EmbeddedEtcd: NewEmbeddedEtcd(),
 		},
+		KubeControllerManagerOptions: kubeControllerManagerOptions,
 	}
 }
 
@@ -160,6 +169,11 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 	options.Authorization.AddFlags(fs)
 	options.Admission.AddFlags(fs)
 	options.ExtraOptions.EmbeddedEtcd.AddFlags(fs)
+
+	kubeCtrMgrNamedFlagSets := options.KubeControllerManagerOptions.Flags()
+	for _, nfs := range kubeCtrMgrNamedFlagSets.FlagSets {
+		fs.AddFlagSet(nfs)
+	}
 
 	fs.StringVar(&options.ServiceAccountSigningKeyFile, "service-account-signing-key-file", options.ServiceAccountSigningKeyFile, "Path to the file that contains the current private key of the service account token issuer. The issuer will sign issued ID tokens with this private key.")
 	fs.StringVar(&options.ServiceClusterIPRanges, "service-cluster-ip-range", options.ServiceClusterIPRanges, "A CIDR notation IP range from which to assign service cluster IPs. This must not overlap with any IP ranges assigned to nodes or pods. Max of two dual-stack CIDRs is allowed.")

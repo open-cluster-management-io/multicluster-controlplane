@@ -95,6 +95,7 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 		aggregatorConfig, kubeAPIServer.GenericAPIServer, apiExtensionsServer.Informers,
 		o.Authentication.ClientCert.ClientCA,
 		o.ExtraOptions.ClientKeyFile,
+		o.KubeControllerManagerOptions,
 	)
 	if err != nil {
 		return nil, nil, err
