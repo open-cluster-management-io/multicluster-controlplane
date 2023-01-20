@@ -1,0 +1,8 @@
+configDirectory: .ocmconfig
+apiserver:
+  externalHostname: 
+  port: 9443
+  caFile: 
+  caKeyFile: 
+etcd:
+  mode: embed

@@ -5,10 +5,12 @@ go 1.19
 require (
 	github.com/onsi/ginkgo/v2 v2.5.0
 	github.com/onsi/gomega v1.24.1
-	github.com/openshift/library-go v0.0.0-20220713145611-ca167a8bd342
+	github.com/openshift/library-go v0.0.0-20221205131816-1700fb06ea43
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
+	github.com/spf13/viper v1.7.0
+	github.com/stretchr/testify v1.8.0
 	go.etcd.io/etcd/server/v3 v3.5.4
 	k8s.io/api v0.25.4
 	k8s.io/apiextensions-apiserver v0.25.4
@@ -20,7 +22,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/kube-aggregator v0.25.4
-	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1
+	k8s.io/kube-openapi v0.0.0-20220803164354-a70c9af30aea
 	k8s.io/kubernetes v1.25.4
 	k8s.io/utils v0.0.0-20221011040102-427025108f67
 	open-cluster-management.io/api v0.9.0
@@ -93,8 +95,8 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/selinux v1.10.0 // indirect
-	github.com/openshift/api v0.0.0-20220525145417-ee5b62754c68 // indirect
-	github.com/openshift/client-go v0.0.0-20220525160904-9e1acff93e4a // indirect
+	github.com/openshift/api v0.0.0-20221116152553-4b67c2b2bb1e // indirect
+	github.com/openshift/client-go v0.0.0-20221019143426-16aed247da5c // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/profile v1.3.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
@@ -125,7 +127,7 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.2.2 // indirect
+	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/cli-runtime v0.25.4 // indirect
@@ -145,12 +147,21 @@ require (
 )
 
 require (
+	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/magiconair/properties v1.8.1 // indirect
+	github.com/pelletier/go-toml v1.2.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/spf13/afero v1.6.0 // indirect
+	github.com/spf13/cast v1.3.0 // indirect
+	github.com/spf13/jwalterweatherman v1.0.0 // indirect
+	github.com/subosito/gotenv v1.2.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect
 	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect
 	google.golang.org/grpc v1.49.0 // indirect
+	gopkg.in/ini.v1 v1.51.0 // indirect
 )
 
 require (
@@ -228,3 +239,5 @@ replace (
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.25.4
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.25.4
 )
+
+replace gopkg.in/square/go-jose.v2 => gopkg.in/square/go-jose.v2 v2.2.2

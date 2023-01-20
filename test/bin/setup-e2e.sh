@@ -8,17 +8,13 @@ KUSTOMIZE=kustomize
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." ; pwd -P)"
 hosting_cluster=${HOST_CLUSTER_NAME:-"hosting"}
 number=${CONTROLPLANE_NUMBER:-1}
-# Reuse certs will skip generate new ca/cert files under CERT_DIR
-# it's useful with PRESERVE_ETCD=true because new ca will make existed service account secrets invalided
-reuse_certs=${REUSE_CERTS:-false}
-certs_dir=${CERT_DIR:-"$project_dir/test/resources/cert"}
+
 etcdns=${ETCD_NS:-"multicluster-controlplane-etcd"}
 
+set -e
 source "$project_dir/test/bin/util.sh"
-
 kube::util::ensure-gnu-sed
-kube::util::test_openssl_installed
-kube::util::ensure-cfssl
+set +e
 
 printf "\033[0;32m%s\n\033[0m" "## Create KinD clusters"
 kubeconfig_dir=$project_dir/test/resources/kubeconfig && check_dir $kubeconfig_dir
@@ -48,47 +44,48 @@ for i in $(seq 1 "${number}"); do
   external_host_port="3008$i"
   deploy_dir=$project_dir/test/resources/$namespace && check_dir $deploy_dir
 
-  if [[ "${reuse_certs}" != true ]]; then
-    certs_dir=$deploy_dir/cert && check_dir $certs_dir
-    generate_certs $certs_dir $external_host_ip $external_host_port
-    set_service_accounts "${certs_dir}/kube-serviceaccount.key"
-    cp ${certs_dir}/kube-aggregator.kubeconfig ${kubeconfig_dir}/$namespace
-  fi
-
   cp -r $project_dir/hack/deploy/controlplane/* $deploy_dir
 
   # expose apiserver
-  sed -i "s/API_HOST/${external_host_ip}/" $deploy_dir/deployment.yaml
   sed -i 's/ClusterIP/NodePort/' $deploy_dir/service.yaml
   sed -i '/route\.yaml/d' $deploy_dir/kustomization.yaml
   sed -i "/targetPort.*/a  \ \ \ \ \ \ nodePort: $external_host_port" $deploy_dir/service.yaml
 
   # setup external etcd 
-  sed -i '/pvc\.yaml/d' $deploy_dir/kustomization.yaml
-  sed -i '/disableNameSuffixHash.*/a patchesStrategicMerge:' $deploy_dir/kustomization.yaml
-  sed -i '/patchesStrategicMerge.*/a \ \ - external-etcd-patch.yaml' $deploy_dir/kustomization.yaml
-  sed -i '/^secretGenerator.*/a \ \ - cert-etcd/client-key.pem' $deploy_dir/kustomization.yaml
-  sed -i '/^secretGenerator.*/a \ \ - cert-etcd/client.pem' $deploy_dir/kustomization.yaml
-  sed -i '/^secretGenerator.*/a \ \ - cert-etcd/ca.pem' $deploy_dir/kustomization.yaml
-  sed -i '/^secretGenerator.*/a \ \ files:' $deploy_dir/kustomization.yaml
-  sed -i '/^secretGenerator.*/a - name: cert-etcd' $deploy_dir/kustomization.yaml
+  CERTS_DIR=$deploy_dir/certs
+  mkdir -p ${CERTS_DIR}
+  cp -f ${project_dir}/multicluster_ca/ca.pem ${CERTS_DIR}/etcd-ca.crt
+  cp -f ${project_dir}/multicluster_ca/client.pem ${CERTS_DIR}/etcd-client.crt
+  cp -f ${project_dir}/multicluster_ca/client-key.pem ${CERTS_DIR}/etcd-client.key
+
+  sed -i "$(sed -n  '/  - ocmconfig.yaml/=' $deploy_dir/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.key" $deploy_dir/kustomization.yaml
+  sed -i "$(sed -n  '/  - ocmconfig.yaml/=' $deploy_dir/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.crt" $deploy_dir/kustomization.yaml
+  sed -i "$(sed -n  '/  - ocmconfig.yaml/=' $deploy_dir/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-ca.crt" $deploy_dir/kustomization.yaml
+
+  write_ocm_config $deploy_dir /.ocmconfig $external_host_ip 9443 external "${namespace}"
+  sed -i "$(sed -n  '/etcd:/=' ${deploy_dir}/ocmconfig.yaml) a \  servers: " ${deploy_dir}/ocmconfig.yaml
   etcd_size=$(${KUBECTL} -n ${etcdns} get statefulset.apps/etcd -o jsonpath='{.spec.replicas}')
-  etcd_services=http://etcd-0.etcd.${etcdns}:2379
-  for((i=1;i<$etcd_size;i++))
+  for((i=0;i<$etcd_size;i++))
   do
-    etcd_services=${etcd_services}",http://etcd-"$i".etcd.${etcdns}:2379"
-  done
-  sed -i "s@http://127.0.0.1:2379@${etcd_services}@g" $deploy_dir/external-etcd-patch.yaml
-  sed -i "s/--etcd-prefix=.*/--etcd-prefix=${namespace}\"/g" $deploy_dir/external-etcd-patch.yaml
-  sed -i "s/API_HOST/${external_host_ip}/g" $deploy_dir/external-etcd-patch.yaml
-        
+    etcd_service="http://etcd-"$i".etcd.${etcdns}:2379"
+    sed -i "$(sed -n '/servers:/=' ${deploy_dir}/ocmconfig.yaml) a \  - ${etcd_service}" ${deploy_dir}/ocmconfig.yaml
+  done 
+  sed -i "$(sed -n '/configDirectory:/=' ${deploy_dir}/ocmconfig.yaml) a \deployToOCP: true" ${deploy_dir}/ocmconfig.yaml
+  sed -i "s@ocmconfig.yaml@${deploy_dir}/ocmconfig.yaml@g" $deploy_dir/kustomization.yaml
+
   # deploy the controplane
   cd $deploy_dir
   $KUSTOMIZE edit set namespace $namespace 
   echo "## Using the Controlplane Image: $IMAGE_NAME"
   $KUSTOMIZE edit set image quay.io/open-cluster-management/multicluster-controlplane=$IMAGE_NAME
   $KUSTOMIZE build $deploy_dir | $KUBECTL apply -f -
-  kube::util::wait_for_url "https://${external_host_ip}:${external_host_port}/healthz" "apiserver: " 1 120 1 || { echo "Controlplane $namespace is not ready!" ; exit 1 ; }
+  
+  wait_for_kubeconfig_secret "${kubeconfig_dir}" "${namespace}" "${KUBECONFIG}"
+  if [ $? -ne 0 ]; then 
+    exit 1
+  fi 
+  sed -i "s/443/${external_host_port}/g" ${kubeconfig_dir}/${namespace}
+  check_multicluster_controlplane "${kubeconfig_dir}" "${namespace}"
 
   printf "\033[0;32m%s\n\033[0m" "## Join the managed cluster: ${namespace}-mc1 into controlplane: $namespace"
   # get bootstrap token of the OCM hub from controlplane api-server

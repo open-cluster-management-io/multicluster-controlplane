@@ -46,20 +46,13 @@ if [[ "${REUSE_CA}" != true ]]; then
     # copy ca to etcd dir
     mkdir -p ${KUBE_ROOT}/hack/deploy/etcd/cert-etcd
     cp -f ${CFSSL_DIR}/ca.pem ${KUBE_ROOT}/hack/deploy/etcd/cert-etcd/ca.pem
-
-    # copy cert to controlplane dir
-    CONTROLPLANE_ETCD_CERT=${KUBE_ROOT}/hack/deploy/controlplane/cert-etcd
-    mkdir -p ${CONTROLPLANE_ETCD_CERT}
-    cp -f ${CFSSL_DIR}/ca.pem ${CONTROLPLANE_ETCD_CERT}/ca.pem
-    cp -f ${CFSSL_DIR}/client.pem ${CONTROLPLANE_ETCD_CERT}/client.pem
-    cp -f ${CFSSL_DIR}/client-key.pem ${CONTROLPLANE_ETCD_CERT}/client-key.pem
 fi
 
-cp hack/deploy/etcd/kustomization.yaml  hack/deploy/etcd/kustomization.yaml.tmp
-cd hack/deploy/etcd && ${KUSTOMIZE} edit set namespace ${ETCD_NS} && ${KUSTOMIZE} edit set image quay.io/coreos/etcd=${ETCD_IMAGE_NAME}
+cp ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml  ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml.tmp
+cd ${KUBE_ROOT}/hack/deploy/etcd && ${KUSTOMIZE} edit set namespace ${ETCD_NS} && ${KUSTOMIZE} edit set image quay.io/coreos/etcd=${ETCD_IMAGE_NAME}
 cd ../../../
 ${KUSTOMIZE} build ${KUBE_ROOT}/hack/deploy/etcd | ${KUBECTL} apply -f -
-mv hack/deploy/etcd/kustomization.yaml.tmp hack/deploy/etcd/kustomization.yaml
+mv ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml.tmp ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml
 
 function check_multicluster-etcd {
     for i in {1..50}; do
@@ -70,8 +63,8 @@ function check_multicluster-etcd {
             break
         fi
         
-        if [ $i -eq 50 ]; then
-            echo "!!!!!!!!!!  the multicluster-etcd ${ETCD_NS} is not ready within 100s"
+        if [ $i -eq 90 ]; then
+            echo "!!!!!!!!!!  the multicluster-etcd ${ETCD_NS} is not ready within 180s"
             ${KUBECTL} -n ${ETCD_NS} get pods
             
             exit 1

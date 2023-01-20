@@ -18,35 +18,18 @@ spec:
       - name: controlplane
         image: quay.io/open-cluster-management/multicluster-controlplane
         imagePullPolicy: IfNotPresent
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         args:
           - "/multicluster-controlplane"
           - "server"
-          - "--authorization-mode=RBAC"
-          - "--enable-bootstrap-token-auth"
-          - "--service-account-key-file=/controlplane/cert/kube-serviceaccount.key"
-          - "--client-ca-file=/controlplane/cert/client-ca.crt"
-          - "--client-key-file=/controlplane/cert/client-ca.key"
-          - "--enable-bootstrap-token-auth"
-          - "--enable-priority-and-fairness=false"
-          - "--api-audiences="    
-          - "--storage-backend=etcd3"
-          - "--v=1"
-          - "--service-account-lookup=false"
-          - "--service-account-signing-key-file=/controlplane/cert/kube-serviceaccount.key"
-          - "--service-account-private-key-file=/controlplane/cert/kube-serviceaccount.key"
-          - "--enable-admission-plugins=NamespaceLifecycle,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ManagedClusterMutating,ManagedClusterValidating,ManagedClusterSetBindingValidating"
-          - "--bind-address=0.0.0.0"
-          - "--secure-port=9443"
-          - "--tls-cert-file=/controlplane/cert/serving-kube-apiserver.crt"
-          - "--tls-private-key-file=/controlplane/cert/serving-kube-apiserver.key"
-          - "--feature-gates=DefaultClusterSet=true,OpenAPIV3=false"
-          - "--enable-embedded-etcd=true"
-          - "--etcd-servers=https://127.0.0.1:2379"
-          - "--service-cluster-ip-range=10.0.0.0/24"
-          - "--service-account-issuer=https://kubernetes.default.svc"
-          - "--external-hostname=API_HOST"
-          - "--profiling=false"
           - "--self-management"
+          - "--controlplane-cert-dir=/.ocmconfig/cert"
+          - "--config-file=/controlplane_config/ocmconfig.yaml"
+          - "--feature-gates=DefaultClusterSet=true,OpenAPIV3=false"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -55,15 +38,15 @@ spec:
           privileged: false
           runAsNonRoot: true
         volumeMounts:
-        - name: controlplane-cert
-          mountPath: /controlplane/cert
+        - name: controlplane-config
+          mountPath: /controlplane_config
           readOnly: true
         - mountPath: /.ocmconfig
           name: ocmconfig 
       volumes:
-      - name: controlplane-cert
+      - name: controlplane-config
         secret:
-          secretName: controlplane-cert
+          secretName: controlplane-config
       - name: ocmconfig 
         persistentVolumeClaim:
           claimName: multicluster-controlplane-pvc-volume

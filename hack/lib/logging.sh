@@ -60,3 +60,52 @@ kube::log::status() {
     echo "    ${message}"
   done
 }
+
+# Print an usage message to stderr.  The arguments are printed directly.
+kube::log::usage() {
+  echo >&2
+  local message
+  for message; do
+    echo "${message}" >&2
+  done
+  echo >&2
+}
+
+# Print out some info that isn't a top level status line
+kube::log::info() {
+  local V="${V:-0}"
+  if [[ ${KUBE_VERBOSE} < ${V} ]]; then
+    return
+  fi
+
+  for message; do
+    echo "${message}"
+  done
+}
+
+# Log an error and exit.
+# Args:
+#   $1 Message to log with the error
+#   $2 The error code to return
+#   $3 The number of stack frames to skip when printing.
+kube::log::error_exit() {
+  local message="${1:-}"
+  local code="${2:-1}"
+  local stack_skip="${3:-0}"
+  stack_skip=$((stack_skip + 1))
+
+  if [[ ${KUBE_VERBOSE} -ge 4 ]]; then
+    local source_file=${BASH_SOURCE[${stack_skip}]}
+    local source_line=${BASH_LINENO[$((stack_skip - 1))]}
+    echo "!!! Error in ${source_file}:${source_line}" >&2
+    [[ -z ${1-} ]] || {
+      echo "  ${1}" >&2
+    }
+
+    kube::log::stack ${stack_skip}
+
+    echo "Exiting with status ${code}" >&2
+  fi
+
+  exit "${code}"
+}

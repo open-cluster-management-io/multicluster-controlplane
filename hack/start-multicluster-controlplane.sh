@@ -1,56 +1,20 @@
 #!/usr/bin/env bash
-# This script starts ocm control plane on local.
-#     Example 1: hack/start-multicluster-controlplane.sh
-#     Example 2: hack/start-multicluster-controlplane.sh false
+# Copyright Contributors to the Open Cluster Management project
 
 KUBE_ROOT=$(pwd)
-if [[ "$(uname)" == "Darwin" ]]; then
-    SERVING_IP=$(ifconfig en0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
-else
-    SERVING_IP=$(ifconfig eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
-fi
 
-if [ ! $SERVING_IP ] ; then
-    echo "SERVING_IP should be set"
+configfile=${KUBE_ROOT}/ocmconfig.yaml
+if [ ! -f "$configfile" ] ; then 
+    echo "config file $configfile do not exist, create it first!" 
     exit 1
-fi
+fi 
 
-# set root dir
-OCM_CONFIG_DIRECTORY=${OCM_CONFIG_DIRECTORY:-".ocmconfig"}
-#  set port
-SERVING_PORT=9443
-# use embedded etcd if set to true
-ENABLE_EMBEDDED_ETCD=${1:-true}
-# must be set if ENABLE_EMBEDDED_ETCD is set to false
-ETCD_HOST=${ETCD_HOST:-"localhost"}
-ETCD_PORT=${ETCD_PORT:-"2379"}
-#
 GO_OUT=${GO_OUT:-"${KUBE_ROOT}/bin"}
-LOG_LEVEL=${LOG_LEVEL:-7}
-# This is the default dir and filename where the apiserver will generate a self-signed cert
-# which should be able to be used as the CA to verify itself
-CERT_DIR=${CERT_DIR:-"${OCM_CONFIG_DIRECTORY}/cert"}
-
-DENY_SECURITY_CONTEXT_ADMISSION=${DENY_SECURITY_CONTEXT_ADMISSION:-""}
-SERVICE_CLUSTER_IP_RANGE=${SERVICE_CLUSTER_IP_RANGE:-10.0.0.0/24}
-FIRST_SERVICE_CLUSTER_IP=${FIRST_SERVICE_CLUSTER_IP:-10.0.0.1}
-# owner of client certs, default to current user if not specified
-USER=${USER:-$(whoami)}
 
 WAIT_FOR_URL_API_SERVER=${WAIT_FOR_URL_API_SERVER:-60}
 MAX_TIME_FOR_URL_API_SERVER=${MAX_TIME_FOR_URL_API_SERVER:-1}
 
 FEATURE_GATES=${FEATURE_GATES:-"DefaultClusterSet=true,OpenAPIV3=false"}
-STORAGE_BACKEND=${STORAGE_BACKEND:-"etcd3"}
-# preserve etcd data. you also need to set ETCD_DIR.
-PRESERVE_ETCD="${PRESERVE_ETCD:-false}"
-
-# RBAC Mode options
-AUTHORIZATION_MODE=${AUTHORIZATION_MODE:-"RBAC"}
-# Default list of admission Controllers to invoke prior to persisting objects in cluster
-# The order defined here does not matter.
-ENABLE_ADMISSION_PLUGINS=${ENABLE_ADMISSION_PLUGINS:-"NamespaceLifecycle,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,ManagedClusterMutating,ManagedClusterValidating,ManagedClusterSetBindingValidating"}
-DISABLE_ADMISSION_PLUGINS=${DISABLE_ADMISSION_PLUGINS:-""}
 
 # enable self managed
 ENABLE_SELF_MANAGED=${ENABLE_SELF_MANAGED:-"true"}
@@ -61,42 +25,20 @@ set -e
 source "${KUBE_ROOT}/hack/lib/init.sh"
 kube::util::ensure-gnu-sed
 
+source "${KUBE_ROOT}/hack/lib/yaml.sh"
 # Shut down anyway if there's an error.
 set +e
 
-API_PORT=${API_PORT:-0}
-API_SECURE_PORT=${API_SECURE_PORT:-$SERVING_PORT}
-API_HOST=${API_HOST:-$SERVING_IP}
-API_HOST_IP=${API_HOST_IP:-$SERVING_IP}
-API_BIND_ADDR=${API_BIND_ADDR:-"0.0.0.0"}
-
 LOG_DIR=${LOG_DIR:-"/tmp"}
-ROOT_CA_FILE="server-ca.crt"
-# Reuse certs will skip generate new ca/cert files under CERT_DIR
-# it's useful with PRESERVE_ETCD=true because new ca will make existed service account secrets invalided
-REUSE_CERTS=${REUSE_CERTS:-false}
-
-
-# Ensure CERT_DIR is created for auto-generated crt/key and kubeconfig
-mkdir -p "${CERT_DIR}" &>/dev/null || sudo mkdir -p "${CERT_DIR}"
-CONTROLPLANE_SUDO=$(test -w "${CERT_DIR}" || echo "sudo -E")
+CONTROLPLANE_SUDO=$(echo "sudo -E")
 
 function test_apiserver_off {
     # For the common local scenario, fail fast if server is already running.
     # this can happen if you run start-multicluster-controlplane.sh twice and kill etcd in between.
-    if [[ "${API_PORT}" -gt "0" ]]; then
-        if ! curl --silent -g "${API_HOST}:${API_PORT}" ; then
-            echo "API SERVER insecure port is free, proceeding..."
-        else
-            echo "ERROR starting API SERVER, exiting. Some process on ${API_HOST} is serving already on ${API_PORT}"
-            exit 1
-        fi
-    fi
-    
-    if ! curl --silent -k -g "${API_HOST}:${API_SECURE_PORT}" ; then
+    if ! curl --silent -k -g "${apiserver_externalHostname}:${apiserver_port}" ; then
         echo "API SERVER secure port is free, proceeding..."
     else
-        echo "ERROR starting API SERVER, exiting. Some process on ${API_HOST} is serving already on ${API_SECURE_PORT}"
+        echo "ERROR starting API SERVER, exiting. Some process on ${apiserver_externalHostname} is serving already on ${apiserver_port}"
         exit 1
     fi
 }
@@ -136,130 +78,77 @@ function start_etcd {
     kube::etcd::start
 }
 
-function set_service_accounts {
-    SERVICE_ACCOUNT_LOOKUP=${SERVICE_ACCOUNT_LOOKUP:-true}
-    SERVICE_ACCOUNT_KEY="${CERT_DIR}/kube-serviceaccount.key"
-    # Generate ServiceAccount key if needed
-    if [[ ! -f "${SERVICE_ACCOUNT_KEY}" ]]; then
-        mkdir -p "$(dirname "${SERVICE_ACCOUNT_KEY}")"
-        openssl genrsa -out "${SERVICE_ACCOUNT_KEY}" 2048 2>/dev/null
-    fi
-}
-
-function generate_certs {
-    # Create CA signers
-    if [[ "${ENABLE_SINGLE_CA_SIGNER:-}" = true ]]; then
-        kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" server '"client auth","server auth"'
-        sudo cp "${CERT_DIR}/server-ca.key" "${CERT_DIR}/client-ca.key"
-        sudo cp "${CERT_DIR}/server-ca.crt" "${CERT_DIR}/client-ca.crt"
-        sudo cp "${CERT_DIR}/server-ca-config.json" "${CERT_DIR}/client-ca-config.json"
-    else
-        kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" server '"server auth"'
-        kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" client '"client auth"'
-    fi
-    
-    # Create auth proxy client ca
-    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" request-header '"client auth"'
-    
-    # serving cert for kube-apiserver
-    kube::util::create_serving_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "server-ca" kube-apiserver kubernetes.default kubernetes.default.svc "localhost" "${API_HOST_IP}" "${API_HOST}" "${FIRST_SERVICE_CLUSTER_IP}"
-    
-    # Create client certs signed with client-ca, given id, given CN and a number of groups
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' admin system:admin system:masters
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kube-apiserver kube-apiserver
-    
-    # Create matching certificates for kube-aggregator
-    kube::util::create_serving_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "server-ca" kube-aggregator api.kube-public.svc "localhost" "${API_HOST_IP}"
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" request-header-ca auth-proxy system:auth-proxy
-    
-    # TODO remove masters and add rolebinding
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kube-aggregator system:kube-aggregator system:masters
-    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST}" "${API_SECURE_PORT}" kube-aggregator
-}
-
 function start_apiserver {
-    security_admission=""
-    if [[ -n "${DENY_SECURITY_CONTEXT_ADMISSION}" ]]; then
-        security_admission=",SecurityContextDeny"
-    fi
-    
-    # Append security_admission plugin
-    ENABLE_ADMISSION_PLUGINS="${ENABLE_ADMISSION_PLUGINS}${security_admission}"
-    
-    authorizer_arg=""
-    if [[ -n "${AUTHORIZATION_MODE}" ]]; then
-        authorizer_arg="--authorization-mode=${AUTHORIZATION_MODE}"
-    fi
- 
-    if [[ "${REUSE_CERTS}" != true ]]; then
-        # Create Certs
-        generate_certs
-    fi
-
     self_managed_arg=""
     controlplane_cert_dir_arg=""
     if [[ "${ENABLE_SELF_MANAGED}" == true ]]; then
         self_managed_arg="--self-management"
-        controlplane_cert_dir_arg="--controlplane-cert-dir=${CERT_DIR}"
+        controlplane_cert_dir_arg="--controlplane-cert-dir=${configDirectory}/cert"
     fi
 
     APISERVER_LOG=${LOG_DIR}/kube-apiserver.log
     ${CONTROLPLANE_SUDO} "${GO_OUT}/multicluster-controlplane" \
     "server" \
-    "${authorizer_arg}"  \
     "${self_managed_arg}" \
     "${controlplane_cert_dir_arg}" \
-    --v="${LOG_LEVEL}" \
-    --enable-bootstrap-token-auth \
-    --enable-priority-and-fairness="false" \
-    --api-audiences="" \
-    --external-hostname="${API_HOST}" \
-    --client-ca-file="${CERT_DIR}/client-ca.crt" \
-    --client-key-file="${CERT_DIR}/client-ca.key" \
-    --service-account-key-file="${SERVICE_ACCOUNT_KEY}" \
-    --service-account-lookup="${SERVICE_ACCOUNT_LOOKUP}" \
-    --service-account-issuer="https://kubernetes.default.svc" \
-    --service-account-signing-key-file="${SERVICE_ACCOUNT_KEY}" \
-    --service-account-private-key-file="${SERVICE_ACCOUNT_KEY}" \
-    --enable-admission-plugins="${ENABLE_ADMISSION_PLUGINS}" \
-    --disable-admission-plugins="${DISABLE_ADMISSION_PLUGINS}" \
-    --bind-address="${API_BIND_ADDR}" \
-    --secure-port="${API_SECURE_PORT}" \
-    --tls-cert-file="${CERT_DIR}/serving-kube-apiserver.crt" \
-    --tls-private-key-file="${CERT_DIR}/serving-kube-apiserver.key" \
-    --storage-backend="${STORAGE_BACKEND}" \
-    --feature-gates="${FEATURE_GATES}" \
-    --enable-embedded-etcd="${ENABLE_EMBEDDED_ETCD}" \
-    --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}" \
-    --service-cluster-ip-range="${SERVICE_CLUSTER_IP_RANGE}" >"${APISERVER_LOG}" 2>&1 &
+    --config-file="${configfile}" \
+    --feature-gates="${FEATURE_GATES}"  >"${APISERVER_LOG}" 2>&1 &
     APISERVER_PID=$!
     
     echo "Waiting for apiserver to come up"
-    kube::util::wait_for_url "https://${API_HOST_IP}:${API_SECURE_PORT}/healthz" "apiserver: " 1 "${WAIT_FOR_URL_API_SERVER}" "${MAX_TIME_FOR_URL_API_SERVER}" \
+    kube::util::wait_for_url "https://127.0.0.1:${apiserver_port}/healthz" "apiserver: " 1 "${WAIT_FOR_URL_API_SERVER}" "${MAX_TIME_FOR_URL_API_SERVER}" \
     || { echo "check apiserver logs: ${APISERVER_LOG}" ; exit 1 ; }
     
-    echo "use 'kubectl --kubeconfig=${CERT_DIR}/kube-aggregator.kubeconfig' to use the aggregated API server"
+    echo "use 'kubectl --kubeconfig=${configDirectory}/cert/kube-aggregator.kubeconfig' to use the aggregated API server"
 }
 
+
+###############################################################################
+create_variables $configfile
+
 echo "environment checking..."
-# validate that etcd is: not running, in path, and has minimum required version.
-if [[ "${ENABLE_EMBEDDED_ETCD}" = false ]]; then
-    echo "etcd validate"
+if [[ ! -z "${deployToOCP:+x}" ]];then 
+    if [[ "${deployToOCP}" == "true" ]]; then
+    echo "deployToOCP should be set to false while running multicluster-controplane locally!"
+    exit 1
+    fi
+fi
+
+if [[ -z "${apiserver_externalHostname:+x}" ]]; then 
+    echo "apiserver_externalHostname not set, using local IP address..."
+    if [[ "$(uname)" == "Darwin" ]]; then
+        apiserver_externalHostname=$(ifconfig en0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
+    else
+        apiserver_externalHostname=$(ifconfig eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
+    fi
+fi
+if [ ! $apiserver_externalHostname ] ; then
+    echo "cannot get local IP address, apiserver_externalHostname should be set"
+    exit 1
+else 
+    sed -i '/externalHostname/d' ${KUBE_ROOT}/ocmconfig.yaml
+    sed -i "$(sed -n  '/apiserver/=' ${KUBE_ROOT}/ocmconfig.yaml) a \  externalHostname: ${apiserver_externalHostname}" ${KUBE_ROOT}/ocmconfig.yaml
+fi
+
+if [[ -z "${apiserver_port:+x}" ]]; then 
+    echo "apiserver_port should be set"
+    exit 1
+fi
+
+if [[ ! -z "${etcd_mode:+x}" && "${etcd_mode}" == "external" ]]; then
+    # validate that etcd is: not running, in path, and has minimum required version.
+    echo "etcd validating..."
     kube::etcd::validate
 fi
 
 test_apiserver_off
-kube::util::test_openssl_installed
-kube::util::ensure-cfssl
 
 trap cleanup EXIT
 
-
-echo "Starting services now!"
-if [[ "${ENABLE_EMBEDDED_ETCD}" = false ]]; then
+echo "Starting service now!"
+if [[ ! -z "${etcd_mode:+x}" && "${etcd_mode}" == "external" ]]; then
     start_etcd
 fi
-set_service_accounts
 start_apiserver
 
 while true; do sleep 1; healthcheck; done
