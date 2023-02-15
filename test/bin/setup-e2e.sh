@@ -65,8 +65,8 @@ for i in $(seq 1 "${number}"); do
 
   # setup external etcd 
   sed -i '/pvc\.yaml/d' $deploy_dir/kustomization.yaml
-  sed -i '/disableNameSuffixHash.*/a patches:' $deploy_dir/kustomization.yaml
-  sed -i '/patches.*/a \ \ - external-etcd-patch.yaml' $deploy_dir/kustomization.yaml
+  sed -i '/disableNameSuffixHash.*/a patchesStrategicMerge:' $deploy_dir/kustomization.yaml
+  sed -i '/patchesStrategicMerge.*/a \ \ - external-etcd-patch.yaml' $deploy_dir/kustomization.yaml
   sed -i '/^secretGenerator.*/a \ \ - cert-etcd/client-key.pem' $deploy_dir/kustomization.yaml
   sed -i '/^secretGenerator.*/a \ \ - cert-etcd/client.pem' $deploy_dir/kustomization.yaml
   sed -i '/^secretGenerator.*/a \ \ - cert-etcd/ca.pem' $deploy_dir/kustomization.yaml

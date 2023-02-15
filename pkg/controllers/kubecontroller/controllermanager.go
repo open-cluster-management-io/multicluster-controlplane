@@ -208,6 +208,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	controllers["bootstrapsigner"] = startBootstrapSignerController
 	controllers["tokencleaner"] = startTokenCleanerController
 	controllers["root-ca-cert-publisher"] = startRootCACertPublisher
+	controllers["clusterrole-aggregation"] = startClusterRoleAggregrationController
 
 	return controllers
 }
