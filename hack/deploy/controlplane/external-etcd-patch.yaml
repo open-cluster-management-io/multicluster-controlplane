@@ -9,6 +9,7 @@ spec:
       - name: controlplane
         args:
           - "/multicluster-controlplane"
+          - "server"
           - "--authorization-mode=RBAC"
           - "--enable-bootstrap-token-auth"
           - "--service-account-key-file=/controlplane/cert/kube-serviceaccount.key"

@@ -52,6 +52,9 @@ AUTHORIZATION_MODE=${AUTHORIZATION_MODE:-"RBAC"}
 ENABLE_ADMISSION_PLUGINS=${ENABLE_ADMISSION_PLUGINS:-"NamespaceLifecycle,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,ManagedClusterMutating,ManagedClusterValidating,ManagedClusterSetBindingValidating"}
 DISABLE_ADMISSION_PLUGINS=${DISABLE_ADMISSION_PLUGINS:-""}
 
+# enable self managed
+ENABLE_SELF_MANAGED=${ENABLE_SELF_MANAGED:-"true"}
+
 # Stop right away if the build fails
 set -e
 
@@ -193,9 +196,19 @@ function start_apiserver {
         generate_certs
     fi
 
+    self_managed_arg=""
+    controlplane_cert_dir_arg=""
+    if [[ "${ENABLE_SELF_MANAGED}" == true ]]; then
+        self_managed_arg="--self-management"
+        controlplane_cert_dir_arg="--controlplane-cert-dir=${CERT_DIR}"
+    fi
+
     APISERVER_LOG=${LOG_DIR}/kube-apiserver.log
     ${CONTROLPLANE_SUDO} "${GO_OUT}/multicluster-controlplane" \
+    "server" \
     "${authorizer_arg}"  \
+    "${self_managed_arg}" \
+    "${controlplane_cert_dir_arg}" \
     --v="${LOG_LEVEL}" \
     --enable-bootstrap-token-auth \
     --enable-priority-and-fairness="false" \
@@ -226,7 +239,6 @@ function start_apiserver {
     || { echo "check apiserver logs: ${APISERVER_LOG}" ; exit 1 ; }
     
     echo "use 'kubectl --kubeconfig=${CERT_DIR}/kube-aggregator.kubeconfig' to use the aggregated API server"
-    
 }
 
 echo "environment checking..."
@@ -235,7 +247,7 @@ if [[ "${ENABLE_EMBEDDED_ETCD}" = false ]]; then
     echo "etcd validate"
     kube::etcd::validate
 fi
-#
+
 test_apiserver_off
 kube::util::test_openssl_installed
 kube::util::ensure-cfssl

@@ -91,6 +91,10 @@ type ServerRunOptions struct {
 	ExtraOptions  *ExtraOptions
 
 	KubeControllerManagerOptions *kubectrmgroptions.KubeControllerManagerOptions
+
+	// EnableSelfManagement register the current cluster self as a managed cluster
+	EnableSelfManagement bool
+	ControlplaneCertDir  string
 }
 
 type ExtraOptions struct {
@@ -157,6 +161,7 @@ func NewServerRunOptions() *ServerRunOptions {
 			EmbeddedEtcd: NewEmbeddedEtcd(),
 		},
 		KubeControllerManagerOptions: kubeControllerManagerOptions,
+		ControlplaneCertDir:          "/controlplane/cert",
 	}
 }
 
@@ -177,9 +182,10 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&options.ServiceAccountSigningKeyFile, "service-account-signing-key-file", options.ServiceAccountSigningKeyFile, "Path to the file that contains the current private key of the service account token issuer. The issuer will sign issued ID tokens with this private key.")
 	fs.StringVar(&options.ServiceClusterIPRanges, "service-cluster-ip-range", options.ServiceClusterIPRanges, "A CIDR notation IP range from which to assign service cluster IPs. This must not overlap with any IP ranges assigned to nodes or pods. Max of two dual-stack CIDRs is allowed.")
-	fs.BoolVar(&options.EnableAggregatorRouting, "enable-aggregator-routing", options.EnableAggregatorRouting,
-		"Turns on aggregator routing requests to endpoints IP rather than cluster IP.")
+	fs.BoolVar(&options.EnableAggregatorRouting, "enable-aggregator-routing", options.EnableAggregatorRouting, "Turns on aggregator routing requests to endpoints IP rather than cluster IP.")
 	fs.StringVar(&options.ExtraOptions.ClientKeyFile, "client-key-file", options.ExtraOptions.ClientKeyFile, "client cert key file")
+	fs.BoolVar(&options.EnableSelfManagement, "self-management", options.EnableSelfManagement, "Register the current controlplane as a managed cluster.")
+	fs.StringVar(&options.ControlplaneCertDir, "controlplane-cert-dir", options.ControlplaneCertDir, "The controlplane cert directory.")
 }
 
 // Complete set default Options.
