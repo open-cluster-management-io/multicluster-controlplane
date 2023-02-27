@@ -34,7 +34,6 @@ type EmbeddedEtcd struct {
 
 func NewEmbeddedEtcd() *EmbeddedEtcd {
 	return &EmbeddedEtcd{
-		Directory:  ".ocmconfig", // TODO(ycyaoxdu): should bind this with DefaultMulticlusterControlplaneConfigDir
 		PeerPort:   "2380",
 		ClientPort: "2379",
 	}

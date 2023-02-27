@@ -26,6 +26,7 @@ import (
 	"open-cluster-management.io/multicluster-controlplane/plugin/admission/managedclustermutating"
 	"open-cluster-management.io/multicluster-controlplane/plugin/admission/managedclustersetbindingvalidating"
 	"open-cluster-management.io/multicluster-controlplane/plugin/admission/managedclustervalidating"
+	"open-cluster-management.io/multicluster-controlplane/plugin/admission/manifestworkvalidating"
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
@@ -44,6 +45,7 @@ var AllOrderedPlugins = []string{
 	managedclustermutating.PluginName,             // ManagedClusterMutating
 	managedclustervalidating.PluginName,           // ManagedClusterValidating
 	managedclustersetbindingvalidating.PluginName, // ManagedClusterSetBindingValidating
+	manifestworkvalidating.PluginName,             // ManifestWorkValidating
 	// new admission plugins should generally be inserted above here
 	// webhook, resourcequota, and deny plugins must go at the end
 
@@ -69,6 +71,7 @@ func RegisterAllAdmissionPlugins(plugins *admission.Plugins) {
 	managedclustermutating.Register(plugins)
 	managedclustervalidating.Register(plugins)
 	managedclustersetbindingvalidating.Register(plugins)
+	manifestworkvalidating.Register(plugins)
 }
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kube-apiserver.

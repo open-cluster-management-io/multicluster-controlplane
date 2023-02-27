@@ -3,12 +3,16 @@
 KUBE_ROOT=$(pwd)
 KUBECTL=${KUBECTL:-"kubectl"}
 KUSTOMIZE=${KUSTOMIZE:-"kustomize"}
-if [ ! $KUBECTL >& /dev/null ] ; then
-      echo "Failed to run $KUBECTL. Please ensure $KUBECTL is installed"
+CFSSL=${CFSSL:-"cfssl"}
+CFSSLJSON=${CFSSLJSON:-"cfssljson"}
+
+if ! command -v $KUBECTL >/dev/null 2>&1; then
+  echo "Command $KUBECTL is not found"
   exit 1
 fi
-if [ ! $KUSTOMIZE >& /dev/null ] ; then
-      echo "Failed to run $KUSTOMIZE. Please ensure $KUSTOMIZE is installed"
+
+if ! command -v $KUSTOMIZE >/dev/null 2>&1; then
+  echo "Command $KUSTOMIZE is not found"
   exit 1
 fi
 
@@ -18,29 +22,33 @@ ETCD_IMAGE_NAME=${ETCD_IMAGE_NAME:-"quay.io/coreos/etcd"}
 REUSE_CA=${REUSE_CA:-false}
 
 if [[ "${REUSE_CA}" != true ]]; then
-    if [ ! go >& /dev/null ] ; then
-        echo "go found"
+    if ! command -v go >/dev/null 2>&1; then
+        echo "Command go is not found"
         exit 1
     fi
-    if [ ! cfssl >& /dev/null ] ; then
-        echo "cfssl not found, installing..."
+
+    if ! command -v $CFSSL >/dev/null 2>&1; then
+        echo "Command $CFSSL is not found, installing..."
         go install github.com/cloudflare/cfssl/cmd/cfssl@latest
+        CFSSL="$(go env GOPATH)/bin/cfssl"
     fi
-    if [ ! cfssljson >& /dev/null ] ; then
-        echo "cfssljson not found, installing..."
+
+    if ! command -v $CFSSLJSON >/dev/null 2>&1; then
+        echo "Command $CFSSLJSON is not found, installing..."
         go install github.com/cloudflare/cfssl/cmd/cfssljson@latest
+        CFSSLJSON="$(go env GOPATH)/bin/cfssljson"
     fi
 
     CFSSL_DIR=${KUBE_ROOT}/multicluster_ca
     mkdir -p ${CFSSL_DIR}
     cd ${CFSSL_DIR}
 
-    echo '{"CN":"multicluster-controlplane","key":{"algo":"rsa","size":2048}}' | cfssl gencert -initca - | cfssljson -bare ca -
+    echo '{"CN":"multicluster-controlplane","key":{"algo":"rsa","size":2048}}' | $CFSSL gencert -initca - | $CFSSLJSON -bare ca -
     echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","server auth","client auth"]}}}' > ca-config.json
 
     export ADDRESS=
     export NAME=client
-    echo '{"CN":"'$NAME'","hosts":[""],"key":{"algo":"rsa","size":2048}}' | cfssl gencert -config=ca-config.json -ca=ca.pem -ca-key=ca-key.pem -hostname="$ADDRESS" - | cfssljson -bare $NAME
+    echo '{"CN":"'$NAME'","hosts":[""],"key":{"algo":"rsa","size":2048}}' | $CFSSL gencert -config=ca-config.json -ca=ca.pem -ca-key=ca-key.pem -hostname="$ADDRESS" - | $CFSSLJSON -bare $NAME
 
     cd ${KUBE_ROOT}
     # copy ca to etcd dir

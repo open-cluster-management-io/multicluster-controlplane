@@ -29,11 +29,8 @@ resources:
 - clusterrolebinding.yaml
 - role.yaml
 - rolebinding.yaml
-- pvc.yaml
 - serviceaccount.yaml
 - deployment.yaml
-- service.yaml
-- route.yaml
 
 images:
 - name: quay.io/open-cluster-management/multicluster-controlplane
@@ -41,8 +38,11 @@ images:
   newTag: latest
 
 secretGenerator:
-- name: controlplane-config
-  files:
-  - ocmconfig.yaml
+  - name: bootstrap-kubeconfig
+    namespace: multicluster-controlplane-agent
+    files:
+      - kubeconfig=hub-kubeconfig
+    type: "Opaque"
+
 generatorOptions:
- disableNameSuffixHash: true
+  disableNameSuffixHash: true

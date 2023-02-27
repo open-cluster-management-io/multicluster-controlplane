@@ -31,5 +31,8 @@ hack/deploy/controlplane/cert/*
 hack/deploy/controlplane/cert*
 hack/deploy/etcd/cert*
 
+ocmconfig.yaml
+*.kubeconfig
+
 # Test
 test/resources

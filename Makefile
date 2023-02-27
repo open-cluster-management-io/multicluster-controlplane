@@ -26,7 +26,7 @@ verify: verify-gocilint
 all: clean vendor build run
 .PHONY: all
 
-run: build
+run:
 	hack/start-multicluster-controlplane.sh
 .PHONY: run
 
@@ -108,30 +108,22 @@ deploy-all: deploy deploy-work-manager-addon deploy-managed-serviceaccount-addon
 export CONTROLPLANE_NUMBER ?= 2
 export VERBOSE ?= 5
 
-setup-dep:
-	./test/bin/setup-dep.sh
-.PHONY: setup-dep
-
-setup-e2e: setup-dep
-	./test/bin/setup-e2e.sh
-.PHONY: setup-e2e
-
 cleanup-e2e:
-	./test/bin/cleanup-e2e.sh
+	./test/e2e/hack/cleanup.sh
 .PHONY: cleanup-e2e
 
-test-e2e:
-	./test/bin/test-e2e.sh -v $(VERBOSE)
+build-e2e-test:
+	go test -c ./test/e2e -o _output/e2e.test
+.PHONY: build-e2e-test
+
+test-e2e: cleanup-e2e build-e2e-test
+	./test/e2e/hack/e2e.sh
 .PHONY: test-e2e
 
-setup-integration: setup-dep vendor build
-	./test/bin/setup-integration.sh
-.PHONY: setup-integration
-
 cleanup-integration:
-	./test/bin/cleanup-integration.sh
+	./test/integration/hack/cleanup.sh
 .PHONY: cleanup-integration
 
-test-integration:
-	./test/bin/test-integration.sh -v $(VERBOSE)
+test-integration: cleanup-integration build
+	./test/integration/hack/integration.sh
 .PHONY: test-integration

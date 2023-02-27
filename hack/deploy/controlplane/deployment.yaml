@@ -14,21 +14,16 @@ spec:
       labels:
         app: multicluster-controlplane
     spec:
+      serviceAccountName: multicluster-controlplane-sa
       containers:
       - name: controlplane
         image: quay.io/open-cluster-management/multicluster-controlplane
         imagePullPolicy: IfNotPresent
-        env:
-        - name: MY_POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
         args:
           - "/multicluster-controlplane"
           - "server"
           - "--self-management"
-          - "--controlplane-cert-dir=/.ocmconfig/cert"
-          - "--config-file=/controlplane_config/ocmconfig.yaml"
+          - "--controlplane-config-dir=/controlplane_config"
           - "--feature-gates=DefaultClusterSet=true,OpenAPIV3=false"
         securityContext:
           allowPrivilegeEscalation: false
@@ -41,12 +36,12 @@ spec:
         - name: controlplane-config
           mountPath: /controlplane_config
           readOnly: true
-        - mountPath: /.ocmconfig
-          name: ocmconfig 
+        - name: ocm-data
+          mountPath: /.ocm
       volumes:
       - name: controlplane-config
         secret:
           secretName: controlplane-config
-      - name: ocmconfig 
+      - name: ocm-data
         persistentVolumeClaim:
           claimName: multicluster-controlplane-pvc-volume
