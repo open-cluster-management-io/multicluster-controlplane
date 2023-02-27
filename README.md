@@ -20,11 +20,11 @@ Set environment variables firstly and then deploy controlplane.
 
 For example: 
 
-    ```bash
-    $ export HUB_NAME=<hub name>
-    $ export IMAGE_NAME=<your image>
-    $ make deploy
-    ```
+```bash
+$ export HUB_NAME=<hub name>
+$ export IMAGE_NAME=<your image>
+$ make deploy
+```
 
 ### Option 2: Run controlplane as a local binary
 
@@ -51,7 +51,7 @@ $ clusteradm --kubeconfig=<kubeconfig file> accept --clusters <cluster_name>
 ### Option 3: Deploy multicluster-controlplane with external etcd on Openshift Cluster 
 
 #### Install etcd
-Set environmrnt variables and deploy etcd.
+Set environment variables and deploy etcd.
 * `ETCD_NS` (optional) is the namespace where the etcd is deployed in. The default is `multicluster-controlplane-etcd`.
 
 For example:
@@ -74,11 +74,11 @@ Set environment variables and deploy controlplane.
 
 For example: 
 
-    ```bash
-    $ export HUB_NAME=<hub name>
-    $ export IMAGE_NAME=<your image>
-    $ make deploy-with-external-etcd
-    ```
+```bash
+$ export HUB_NAME=<hub name>
+$ export IMAGE_NAME=<your image>
+$ make deploy-with-external-etcd
+```
 
 ## Install add-on
 
