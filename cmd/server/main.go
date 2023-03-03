@@ -7,16 +7,14 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/cli"
-	cliflag "k8s.io/component-base/cli/flag"
 	logsapi "k8s.io/component-base/logs/api/v1"
-	"k8s.io/component-base/version/verflag"
 
-	"open-cluster-management.io/multicluster-controlplane/pkg/servers"
-	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
+	"open-cluster-management.io/multicluster-controlplane/pkg/cmd/agent"
+	"open-cluster-management.io/multicluster-controlplane/pkg/cmd/controller"
 )
 
 func init() {
@@ -24,44 +22,24 @@ func init() {
 }
 
 func main() {
-	command := newServerCommand()
-	code := cli.Run(command)
-	os.Exit(code)
+	command := newControlPlaneCommand()
+	os.Exit(cli.Run(command))
 }
 
-func newServerCommand() *cobra.Command {
-	options := options.NewServerRunOptions()
+func newControlPlaneCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "controlplane",
-		Short: "Start a Multicluster Controlpane Server",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			verflag.PrintAndExitIfRequested()
-			cliflag.PrintFlags(cmd.Flags())
-
-			if err := logsapi.ValidateAndApply(options.Logs, utilfeature.DefaultFeatureGate); err != nil {
-				return err
+		Short: "Start a multicluster controlplane",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := cmd.Help(); err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
 			}
-
-			stopChan := genericapiserver.SetupSignalHandler()
-			if err := options.Complete(stopChan); err != nil {
-				return err
-			}
-
-			if err := options.Validate(); err != nil {
-				return err
-			}
-
-			return servers.NewServer(*options).Start(stopChan)
-		},
-		Args: func(cmd *cobra.Command, args []string) error {
-			for _, arg := range args {
-				if len(arg) > 0 {
-					return fmt.Errorf("%q does not take any arguments, got %q", cmd.CommandPath(), args)
-				}
-			}
-			return nil
+			os.Exit(1)
 		},
 	}
-	options.AddFlags(cmd.Flags())
+
+	cmd.AddCommand(controller.NewController())
+	cmd.AddCommand(agent.NewAgent())
+
 	return cmd
 }

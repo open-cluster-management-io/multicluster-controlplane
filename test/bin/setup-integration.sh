@@ -32,6 +32,7 @@ function start_apiserver {
     apiserver_log=${project_dir}/test/resources/integration/kube-apiserver.log
 
     ${CONTROLPLANE_SUDO} "${controlplane_bin}/multicluster-controlplane" \
+    "server" \
     --authorization-mode="RBAC"  \
     --v="7" \
     --enable-bootstrap-token-auth \

@@ -20,6 +20,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
           - "/multicluster-controlplane"
+          - "server"
           - "--authorization-mode=RBAC"
           - "--enable-bootstrap-token-auth"
           - "--service-account-key-file=/controlplane/cert/kube-serviceaccount.key"
@@ -45,6 +46,7 @@ spec:
           - "--service-account-issuer=https://kubernetes.default.svc"
           - "--external-hostname=API_HOST"
           - "--profiling=false"
+          - "--self-management"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
