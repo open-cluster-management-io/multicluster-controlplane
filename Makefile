@@ -30,11 +30,6 @@ run: build
 	hack/start-multicluster-controlplane.sh
 .PHONY: run
 
-# the script will automatically start a exteral etcd
-run-with-external-etcd:
-	hack/start-multicluster-controlplane.sh false
-.PHONY: run-with-external-etcd
-
 build-bin-release:
 	$(rm -rf bin)
 	$(mkdir -p bin)
@@ -75,10 +70,6 @@ update:
 deploy-etcd: 
 	$(KUBECTL) get ns $(ETCD_NS); if [ $$? -ne 0 ] ; then $(KUBECTL) create ns $(ETCD_NS); fi
 	hack/deploy-etcd.sh
-
-deploy-with-external-etcd:
-	$(KUBECTL) get ns $(HUB_NAME); if [ $$? -ne 0 ] ; then $(KUBECTL) create ns $(HUB_NAME); fi
-	hack/deploy-multicluster-controlplane.sh false
 
 deploy:
 	$(KUBECTL) get ns $(HUB_NAME); if [ $$? -ne 0 ] ; then $(KUBECTL) create ns $(HUB_NAME); fi

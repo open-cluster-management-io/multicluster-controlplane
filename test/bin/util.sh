@@ -3,49 +3,6 @@
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." ; pwd -P)"
 source "$project_dir/hack/lib/init.sh"
 
-function generate_certs {
-    CERT_DIR=$1
-    API_HOST_IP=$2
-    API_HOST_PORT=$3
-
-    # Ensure CERT_DIR is created for auto-generated crt/key and kubeconfig
-    mkdir -p "${CERT_DIR}"
-    CONTROLPLANE_SUDO=$(test -w "${CERT_DIR}" || echo "sudo -E")
-
-    # in the flags of apiserver --service-cluster-ip-range
-    FIRST_SERVICE_CLUSTER_IP=${FIRST_SERVICE_CLUSTER_IP:-10.0.0.1}
-
-    # create ca
-    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" server '"server auth"'
-    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" client '"client auth"'
-    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" request-header '"proxy client auth"'
-    
-    # serving cert for kube-apiserver
-    ROOT_CA_FILE="serving-kube-apiserver.crt"
-    kube::util::create_serving_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "server-ca" kube-apiserver kubernetes.default kubernetes.default.svc "localhost" "${API_HOST_IP}" "${FIRST_SERVICE_CLUSTER_IP}"
-    
-    # create client certs signed with client-ca, given id, given CN and a number of groups
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' admin system:admin system:masters
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kube-apiserver kube-apiserver
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kube-aggregator system:kube-aggregator system:masters
-    
-    # create matching certificates for kube-aggregator
-    kube::util::create_serving_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "server-ca" kube-aggregator api.kube-public.svc "localhost" "${API_HOST_IP}"
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "request-header-ca" auth-proxy system:auth-proxy
-    
-    # generate kubeconfig
-    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST_IP}" "${API_HOST_PORT}" kube-aggregator
-}
-
-function set_service_accounts {
-    output_file=$1
-    # Generate ServiceAccount key if needed
-    if [[ ! -f "${output_file}" ]]; then
-      mkdir -p "$(dirname "${output_file}")"
-      openssl genrsa -out "${output_file}" 2048 2>/dev/null     # create user private key
-    fi
-}
-
 function check_dir() {
   if [ ! -d "$1" ];then
     mkdir -p "$1"
@@ -95,4 +52,67 @@ function print_color {
 
 function warning_log {
     print_color "$1" "W$(date "+%m%d %H:%M:%S")]" 1
+}
+
+# creates a ocmconfig: args are dest-dir, host, port, etcd_mode
+function write_ocm_config {
+  local dest_dir=$1
+  local config_dir=$2
+  local api_host=$3
+  local api_port=$4
+  local etcd_mode=$5
+  local etcd_prefix=$6
+
+  cat <<EOF | tee ${dest_dir}/ocmconfig.yaml > /dev/null
+configDirectory: $config_dir
+apiserver:
+  externalHostname: $api_host
+  port: $api_port
+etcd:
+  mode: $etcd_mode
+  prefix: $etcd_prefix
+  caFile: /controlplane_config/etcd-ca.crt
+  certFile: /controlplane_config/etcd-client.crt
+  keyFile: /controlplane_config/etcd-client.key
+EOF
+}
+
+function wait_for_kubeconfig_secret {
+  local kubeconfig_dir=$1
+  local namespace=$2
+  local kubeconfigfile=$3
+
+  echo "Waiting for kubeconfig..."
+  for i in {1..10}; do
+      kubectl --kubeconfig ${kubeconfigfile} -n ${namespace} get secret kubeconfig &>/dev/null
+      if [ $? -eq 0 ]; then
+          kubectl --kubeconfig ${kubeconfigfile} -n ${namespace} get secret kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d > ${kubeconfig_dir}/${namespace}
+          return 0
+      fi
+      sleep 2
+  done
+  echo "kubeconfig secret not appear..."
+  return 1
+}
+
+function check_multicluster_controlplane {
+  local kubeconfig_dir=$1
+  local hub_name=$2
+
+  echo "Checking multicluster-controlplane..."
+  for i in {1..10}; do
+      RESULT=$(kubectl --kubeconfig=${kubeconfig_dir}/${hub_name} api-resources | grep managedclusters)
+      if [ -n "${RESULT}" ]; then
+          echo "#### multicluster-controlplane ${hub_name} is ready ####"
+          break
+      fi
+      
+      if [ $i -eq 10 ]; then
+          echo "!!!!!!!!!!  the multicluster-controlplane ${hub_name} is not ready within 30s"
+          kubectl -n ${hub_name} get pods
+          
+          exit 1
+      fi
+      sleep 2
+  done
 }

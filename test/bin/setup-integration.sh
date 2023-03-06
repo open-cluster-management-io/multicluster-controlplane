@@ -11,8 +11,6 @@ kubeconfig_dir=$project_dir/test/resources/integration/kubeconfig
 check_dir $kubeconfig_dir
 
 kube::util::ensure-gnu-sed
-kube::util::test_openssl_installed
-kube::util::ensure-cfssl
 
 controlplane_bin=${CONTROPLANE_BIN:-"${project_dir}/bin"}
 network_interface=${NETWORK_INTERFACE:-"eth0"}
@@ -23,9 +21,9 @@ if [ ! $api_host_ip ] ; then
 fi
 api_secure_port=${API_SECURE_PORT:-"9443"}
 
-cert_dir=${CERT_DIR:-"${project_dir}/test/resources/integration/cert"}
+config_dir="${project_dir}/test/resources/integration"
+cert_dir=${CERT_DIR:-"${config_dir}/cert"}
 check_dir $cert_dir
-service_account_key="${cert_dir}/kube-serviceaccount.key"
 
 CONTROLPLANE_SUDO=$(test -w "${cert_dir}" || echo "sudo -E")
 function start_apiserver {
@@ -33,30 +31,8 @@ function start_apiserver {
 
     ${CONTROLPLANE_SUDO} "${controlplane_bin}/multicluster-controlplane" \
     "server" \
-    --authorization-mode="RBAC"  \
-    --v="7" \
-    --enable-bootstrap-token-auth \
-    --enable-priority-and-fairness="false" \
-    --api-audiences="" \
-    --external-hostname="${api_host_ip}" \
-    --client-ca-file="${cert_dir}/client-ca.crt" \
-    --client-key-file="${cert_dir}/client-ca.key" \
-    --service-account-key-file="${service_account_key}" \
-    --service-account-lookup="true" \
-    --service-account-issuer="https://kubernetes.default.svc" \
-    --service-account-signing-key-file="${service_account_key}" \
-    --service-account-private-key-file="${service_account_key}" \
-    --enable-admission-plugins="NamespaceLifecycle,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,ManagedClusterMutating,ManagedClusterValidating,ManagedClusterSetBindingValidating" \
-    --disable-admission-plugins="" \
-    --bind-address="0.0.0.0" \
-    --secure-port="${api_secure_port}" \
-    --tls-cert-file="${cert_dir}/serving-kube-apiserver.crt" \
-    --tls-private-key-file="${cert_dir}/serving-kube-apiserver.key" \
-    --storage-backend="etcd3" \
-    --feature-gates="DefaultClusterSet=true,OpenAPIV3=false" \
-    --enable-embedded-etcd="true" \
-    --etcd-servers="http://localhost:2379" \
-    --service-cluster-ip-range="10.0.0.0/24" >"$apiserver_log" 2>&1 &
+    --config-file=${config_dir}/ocmconfig.yaml \
+    --feature-gates="DefaultClusterSet=true,OpenAPIV3=false"  >"$apiserver_log" 2>&1 &
     apiserver_pid=$!
     echo "$apiserver_pid" > ${project_dir}/test/resources/integration/controlpane_pid
 
@@ -70,8 +46,7 @@ function start_apiserver {
 
 if ! curl --silent -k -g "${api_host_ip}:${api_secure_port}" ; then
     echo "API SERVER secure port is free, proceeding..."
-    set_service_accounts $service_account_key
-    generate_certs $cert_dir $api_host_ip $api_secure_port
+    write_ocm_config ${config_dir} $config_dir $api_host_ip $api_secure_port "embed" "/registry"
     start_apiserver
 else
     echo "Some(API SERVER) process on ${api_host_ip} is serving already on ${api_secure_port}"

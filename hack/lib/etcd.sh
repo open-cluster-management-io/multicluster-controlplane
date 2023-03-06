@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright Contributors to the Open Cluster Management project
 
 # Copyright 2014 The Kubernetes Authors.
 #
@@ -153,11 +154,14 @@ kube::etcd::install() {
     os=$(kube::util::host_os)
     arch=$(kube::util::host_arch)
 
-    cd "${KUBE_ROOT}/third_party" || return 1
     if [[ $(readlink etcd) == etcd-v${ETCD_VERSION}-${os}-* ]]; then
       kube::log::info "etcd v${ETCD_VERSION} already installed. To use:"
       kube::log::info "export PATH=\"$(pwd)/etcd:\${PATH}\""
       return  #already installed
+    fi
+
+    if [ ! -d "bin" ];then
+      mkdir bin
     fi
 
     if [[ ${os} == "darwin" ]]; then
@@ -165,17 +169,17 @@ kube::etcd::install() {
       url="https://github.com/coreos/etcd/releases/download/v${ETCD_VERSION}/${download_file}"
       kube::util::download_file "${url}" "${download_file}"
       unzip -o "${download_file}"
-      ln -fns "etcd-v${ETCD_VERSION}-darwin-amd64" etcd
+      mv "etcd-v${ETCD_VERSION}-darwin-amd64" bin/etcd
       rm "${download_file}"
     else
       url="https://github.com/coreos/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-linux-${arch}.tar.gz"
       download_file="etcd-v${ETCD_VERSION}-linux-${arch}.tar.gz"
       kube::util::download_file "${url}" "${download_file}"
       tar xzf "${download_file}"
-      ln -fns "etcd-v${ETCD_VERSION}-linux-${arch}" etcd
+      mv "etcd-v${ETCD_VERSION}-linux-${arch}" bin/etcd
       rm "${download_file}"
     fi
     kube::log::info "etcd v${ETCD_VERSION} installed. To use:"
-    kube::log::info "export PATH=\"$(pwd)/etcd:\${PATH}\""
+    kube::log::info "export PATH=\"$(pwd)/bin/etcd:\${PATH}\""
   )
 }

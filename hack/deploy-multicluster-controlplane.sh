@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# This script starts ocm control plane.
-#     Example 1: hack/start-multicluster-controlplane.sh
-#     Example 2: hack/start-multicluster-controlplane.sh false
+# Copyright Contributors to the Open Cluster Management project
 
 KUBECTL=oc
 KUSTOMIZE=kustomize
@@ -13,6 +11,14 @@ if [ ! $KUSTOMIZE >& /dev/null ] ; then
     echo "Failed to run $KUSTOMIZE. Please ensure $KUSTOMIZE is installed"
     exit 1
 fi
+
+KUBE_ROOT=$(pwd)
+
+configfile=${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+if [ ! -f "$configfile" ] ; then 
+    echo "config file $configfile do not exist, create it first!" 
+    exit 1
+fi 
 
 HUB_NAME=${HUB_NAME:-"multicluster-controlplane"}
 IMAGE_NAME=${IMAGE_NAME:-"quay.io/open-cluster-management/multicluster-controlplane"}
@@ -33,56 +39,6 @@ if [ ! $API_HOST_POSTFIX ] ; then
     exit 1
 fi
 API_HOST="multicluster-controlplane-${HUB_NAME}.${API_HOST_POSTFIX}"
-KUBE_ROOT=$(pwd)
-
-
-export OCM_DEPLOY_DIRECTORY="$(pwd)/hack/deploy"
-export OCM_CONFIG_DIRECTORY="$(pwd)/hack/deploy/controlplane"
-#  set port
-SERVING_PORT=9443
-# use embedded etcd if set to true
-ENABLE_EMBEDDED_ETCD=${1:-true}
-#
-GO_OUT=${GO_OUT:-"${KUBE_ROOT}/bin"}
-LOG_LEVEL=${LOG_LEVEL:-7}
-# This is the default dir and filename where the apiserver will generate a self-signed cert
-# which should be able to be used as the CA to verify itself
-CERT_DIR=${CERT_DIR:-"${OCM_CONFIG_DIRECTORY}/cert"}
-
-SERVICE_CLUSTER_IP_RANGE=${SERVICE_CLUSTER_IP_RANGE:-10.0.0.0/24}
-FIRST_SERVICE_CLUSTER_IP=${FIRST_SERVICE_CLUSTER_IP:-10.0.0.1}
-# owner of client certs, default to current user if not specified
-USER=${USER:-$(whoami)}
-
-WAIT_FOR_URL_API_SERVER=${WAIT_FOR_URL_API_SERVER:-60}
-MAX_TIME_FOR_URL_API_SERVER=${MAX_TIME_FOR_URL_API_SERVER:-1}
-ENABLE_DAEMON=${ENABLE_DAEMON:-false}
-
-KUBELET_PROVIDER_ID=${KUBELET_PROVIDER_ID:-"$(hostname)"}
-FEATURE_GATES=${FEATURE_GATES:-"DefaultClusterSet=true"}
-STORAGE_BACKEND=${STORAGE_BACKEND:-"etcd3"}
-STORAGE_MEDIA_TYPE=${STORAGE_MEDIA_TYPE:-"application/vnd.kubernetes.protobuf"}
-# preserve etcd data. you also need to set ETCD_DIR.
-PRESERVE_ETCD="${PRESERVE_ETCD:-false}"
-
-# WebHook Authentication and Authorization
-AUTHORIZATION_WEBHOOK_CONFIG_FILE=${AUTHORIZATION_WEBHOOK_CONFIG_FILE:-""}
-AUTHENTICATION_WEBHOOK_CONFIG_FILE=${AUTHENTICATION_WEBHOOK_CONFIG_FILE:-""}
-
-# Do not run the mutation detector by default on a local cluster.
-# It is intended for a specific type of testing and inherently leaks memory.
-KUBE_CACHE_MUTATION_DETECTOR="${KUBE_CACHE_MUTATION_DETECTOR:-false}"
-export KUBE_CACHE_MUTATION_DETECTOR
-
-# panic the server on watch decode errors since they are considered coder mistakes
-KUBE_PANIC_WATCH_DECODE_ERROR="${KUBE_PANIC_WATCH_DECODE_ERROR:-true}"
-export KUBE_PANIC_WATCH_DECODE_ERROR
-
-# Default list of admission Controllers to invoke prior to persisting objects in cluster
-# The order defined here does not matter.
-ENABLE_ADMISSION_PLUGINS=${ENABLE_ADMISSION_PLUGINS:-"NamespaceLifecycle,LimitRanger,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota"}
-DISABLE_ADMISSION_PLUGINS=${DISABLE_ADMISSION_PLUGINS:-"TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,PodSecurity,PersistentVolumeClaimResize,RuntimeClass,DefaultIngressClass"}
-
 
 # Stop right away if the build fails
 set -e
@@ -90,132 +46,111 @@ set -e
 source "${KUBE_ROOT}/hack/lib/init.sh"
 kube::util::ensure-gnu-sed
 
+source "${KUBE_ROOT}/hack/lib/yaml.sh"
+
 # Shut down anyway if there's an error.
 set +e
 
-API_PORT=${API_PORT:-0}
-API_SECURE_PORT=${API_SECURE_PORT:-$SERVING_PORT}
-API_HOST=${API_HOST:-""}
-API_HOST_IP=${API_HOST_IP:-"127.0.0.1"}
-ADVERTISE_ADDRESS=${ADVERTISE_ADDRESS:-""}
-NODE_PORT_RANGE=${NODE_PORT_RANGE:-""}
-API_BIND_ADDR=${API_BIND_ADDR:-"0.0.0.0"}
-EXTERNAL_HOSTNAME=${EXTERNAL_HOSTNAME:-""}
-# TODO(ycyaoxdu): should allowe all origins?
-API_CORS_ALLOWED_ORIGINS=${API_CORS_ALLOWED_ORIGINS:-/(.*)+$}
-
-# Use to increase verbosity on particular files, e.g. LOG_SPEC=token_controller*=5,other_controller*=4
-LOG_SPEC=${LOG_SPEC:-""}
-LOG_DIR=${LOG_DIR:-"/tmp"}
-ROOT_CA_FILE="serving-kube-apiserver.crt"
-CLUSTER_SIGNING_CERT_FILE=${CLUSTER_SIGNING_CERT_FILE:-"${CERT_DIR}/client-ca.crt"}
-CLUSTER_SIGNING_KEY_FILE=${CLUSTER_SIGNING_KEY_FILE:-"${CERT_DIR}/client-ca.key"}
-# Reuse certs will skip generate new ca/cert files under CERT_DIR
-# it's useful with PRESERVE_ETCD=true because new ca will make existed service account secrets invalided
-REUSE_CERTS=${REUSE_CERTS:-false}
-
-
-# Ensure CERT_DIR is created for auto-generated crt/key and kubeconfig
-rm -r "${CERT_DIR}" &>/dev/null
-mkdir -p "${CERT_DIR}" &>/dev/null || sudo mkdir -p "${CERT_DIR}"
-CONTROLPLANE_SUDO=$(test -w "${CERT_DIR}" || echo "sudo -E")
-
-
-function set_service_accounts {
-    SERVICE_ACCOUNT_LOOKUP=${SERVICE_ACCOUNT_LOOKUP:-true}
-    SERVICE_ACCOUNT_KEY="${CERT_DIR}/kube-serviceaccount.key"
-    # Generate ServiceAccount key if needed
-    if [[ ! -f "${SERVICE_ACCOUNT_KEY}" ]]; then
-        mkdir -p "$(dirname "${SERVICE_ACCOUNT_KEY}")"
-        openssl genrsa -out "${SERVICE_ACCOUNT_KEY}" 2048 2>/dev/null
-    fi
-}
-
-function generate_certs {
-    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" server '"server auth"'
-    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" client '"client auth"'
-    
-    # Create auth proxy client ca
-    kube::util::create_signing_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" request-header '"client auth"'
-    
-    # serving cert for kube-apiserver
-    kube::util::create_serving_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "server-ca" kube-apiserver kubernetes.default kubernetes.default.svc "localhost" "${API_HOST_IP}" "${API_HOST}" "${FIRST_SERVICE_CLUSTER_IP}"
-    
-    # Create client certs signed with client-ca, given id, given CN and a number of groups
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' admin system:admin system:masters
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kube-apiserver kube-apiserver
-    
-    # Create matching certificates for kube-aggregator
-    kube::util::create_serving_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "server-ca" kube-aggregator api.kube-public.svc "localhost" "${API_HOST_IP}"
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" request-header-ca auth-proxy system:auth-proxy
-    
-    # TODO remove masters and add rolebinding
-    kube::util::create_client_certkey "${CONTROLPLANE_SUDO}" "${CERT_DIR}" 'client-ca' kube-aggregator system:kube-aggregator system:masters
-    # TODO(ycyaoxdu): should write data( rather than) file in kubeconfig
-    kube::util::write_client_kubeconfig "${CONTROLPLANE_SUDO}" "${CERT_DIR}" "${ROOT_CA_FILE}" "${API_HOST}" "443" kube-aggregator
-}
+CERTS_DIR="${KUBE_ROOT}/hack/deploy/controlplane/certs"
+IN_POD_CERTS_DIR="/controlplane_config"
 
 function start_apiserver {
-    if [[ "${REUSE_CERTS}" != true ]]; then
-        # Create Certs
-        generate_certs
+    cp ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml  ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml.tmp 
+
+    if [[ -z "${apiserver_externalHostname:+x}" ]]; then 
+        sed -i '/externalHostname/d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+        sed -i "$(sed -n  '/apiserver/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  externalHostname: ${API_HOST}" ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
     fi
-    
-    cp ${CERT_DIR}/kube-aggregator.kubeconfig ${CERT_DIR}/kubeconfig
-    cp hack/deploy/controlplane/kustomization.yaml  hack/deploy/controlplane/kustomization.yaml.tmp
-    cp hack/deploy/controlplane/deployment.yaml hack/deploy/controlplane/deployment.yaml.tmp
-    
-    if [[ "${ENABLE_EMBEDDED_ETCD}" == false ]]; then
-        cp hack/deploy/controlplane/external-etcd-patch.yaml hack/deploy/controlplane/external-etcd-patch.yaml.tmp
-        
-        if [[ -z ${ETCD_NS} ]]; then
+
+    cp ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml  ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml.tmp
+    cp ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml.tmp
+
+    # copy root-ca to ca directory
+    if [[ ! -z "${apiserver_caFile}" && ! -z "${apiserver_caKeyFile}" ]]; then 
+        mkdir -p ${CERTS_DIR}
+        cp -f ${KUBE_ROOT}/${apiserver_caFile} ${CERTS_DIR}/root-ca.crt
+        cp -f ${KUBE_ROOT}/${apiserver_caKeyFile} ${CERTS_DIR}/root-ca.key
+        # add to kustomize
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/root-ca.crt" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/root-ca.key" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+        # modify config file
+        sed -i "s,${apiserver_caFile},${IN_POD_CERTS_DIR}/root-ca.crt," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+        sed -i "s,${apiserver_caKeyFile},${IN_POD_CERTS_DIR}/root-ca.key," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+    fi
+
+    # set etcd mode
+    if [[ "${etcd_mode}" == "embed" ]]; then 
+        echo "using embed etcd..."
+    elif [[ "${etcd_mode}" == "external" ]]; then
+        echo "using external etcd..."
+        if [[ -z ${ETCD_NS+x} ]]; then
             echo "environment variable ETCD_NS should be set"
             exit 1
         fi
 
-        CLUSTER_SIZE=$(${KUBECTL} -n ${ETCD_NS} get statefulset.apps/etcd -o jsonpath='{.spec.replicas}')
-        ETCD_SERVICE=http://etcd-0.etcd.${ETCD_NS}:2379
-        for((i=1;i<$CLUSTER_SIZE;i++))
-        do
-            ETCD_SERVICE=${ETCD_SERVICE}",http://etcd-"$i".etcd.${ETCD_NS}:2379"
-        done
-        sed -i "s@http://127.0.0.1:2379@${ETCD_SERVICE}@g" hack/deploy/controlplane/external-etcd-patch.yaml
-        sed -i "s,multicluster-controlplane-etcd-prefix,${HUB_NAME},g" hack/deploy/controlplane/external-etcd-patch.yaml
-        sed -i "s,API_HOST,${API_HOST},g" hack/deploy/controlplane/external-etcd-patch.yaml
-        
-        # remove pvc.yaml 
-        sed -i "$(sed -n  '/- pvc.yaml/=' hack/deploy/controlplane/kustomization.yaml)d" hack/deploy/controlplane/kustomization.yaml
-        # apply patch
-        sed -i '$a \patches:' hack/deploy/controlplane/kustomization.yaml
-        sed -i '$a \  - external-etcd-patch.yaml' hack/deploy/controlplane/kustomization.yaml
-        
-        sed -i "$(sed -n  '/secretGenerator/=' hack/deploy/controlplane/kustomization.yaml) a \  - cert-etcd/client-key.pem" hack/deploy/controlplane/kustomization.yaml
-        sed -i "$(sed -n  '/secretGenerator/=' hack/deploy/controlplane/kustomization.yaml) a \  - cert-etcd/client.pem" hack/deploy/controlplane/kustomization.yaml
-        sed -i "$(sed -n  '/secretGenerator/=' hack/deploy/controlplane/kustomization.yaml) a \  - cert-etcd/ca.pem " hack/deploy/controlplane/kustomization.yaml
-        sed -i "$(sed -n  '/secretGenerator/=' hack/deploy/controlplane/kustomization.yaml) a \  files:" hack/deploy/controlplane/kustomization.yaml
-        sed -i "$(sed -n  '/secretGenerator/=' hack/deploy/controlplane/kustomization.yaml) a - name: cert-etcd" hack/deploy/controlplane/kustomization.yaml
-    else
-        sed -i 's,API_HOST,'${API_HOST}',' hack/deploy/controlplane/deployment.yaml
-    fi
-    
-    cd hack/deploy/controlplane && ${KUSTOMIZE} edit set namespace ${HUB_NAME} && ${KUSTOMIZE} edit set image quay.io/open-cluster-management/multicluster-controlplane=${IMAGE_NAME}
-    cd ../../../
-    ${KUSTOMIZE} build hack/deploy/controlplane | ${KUBECTL} apply -f -
-    mv hack/deploy/controlplane/kustomization.yaml.tmp hack/deploy/controlplane/kustomization.yaml
-    mv hack/deploy/controlplane/deployment.yaml.tmp hack/deploy/controlplane/deployment.yaml
-    if [[ "${ENABLE_EMBEDDED_ETCD}" == false ]]; then
-        mv hack/deploy/controlplane/external-etcd-patch.yaml.tmp hack/deploy/controlplane/external-etcd-patch.yaml
-    fi
-    
-    rm -rf ${OCM_DEPLOY_DIRECTORY}/cert-${HUB_NAME}
-    mkdir -p ${OCM_DEPLOY_DIRECTORY}/cert-${HUB_NAME}
-    cp -f ${CERT_DIR}/* ${OCM_DEPLOY_DIRECTORY}/cert-${HUB_NAME}
+        if [[ -z "${etcd_servers:+x}" ]]; then
+            # remove previous etcd server values
+            sed -i '/servers/d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            sed -i '/  - /d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            # set etcd servers
+            sed -i "$(sed -n  '/etcd:/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  servers: " ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            CLUSTER_SIZE=$(${KUBECTL} -n ${ETCD_NS} get statefulset.apps/etcd -o jsonpath='{.spec.replicas}')
+            for((i=0;i<$CLUSTER_SIZE;i++))
+            do
+                ETCD_SERVER="http://etcd-"$i".etcd.${ETCD_NS}:2379"
+                sed -i "$(sed -n  '/servers:/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  - ${ETCD_SERVER}" ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            done
+        fi
+
+        if [[ -z "${etcd_prefix:+x}" ]] ; then 
+            sed -i '/prefix/d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            # set etcd prefix
+            sed -i "$(sed -n  '/etcd:/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  prefix: \"${HUB_NAME}\"" ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+        fi
+
+        mkdir -p ${CERTS_DIR}
+        cp -f ${KUBE_ROOT}/${etcd_caFile} ${CERTS_DIR}/etcd-ca.crt
+        cp -f ${KUBE_ROOT}/${etcd_certFile} ${CERTS_DIR}/etcd-client.crt
+        cp -f ${KUBE_ROOT}/${etcd_keyFile} ${CERTS_DIR}/etcd-client.key
+        # add to kustomize
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.key" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.crt" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-ca.crt" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+        # modify config file
+        sed -i "s,${etcd_caFile},${IN_POD_CERTS_DIR}/etcd-ca.crt," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml 
+        sed -i "s,${etcd_certFile},${IN_POD_CERTS_DIR}/etcd-client.crt," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+        sed -i "s,${etcd_keyFile},${IN_POD_CERTS_DIR}/etcd-client.key," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+    else 
+        echo "invalid value etcd mode"
+        exit 1
+    fi 
+
+    cd ${KUBE_ROOT}/hack/deploy/controlplane && ${KUSTOMIZE} edit set namespace ${HUB_NAME} && ${KUSTOMIZE} edit set image quay.io/open-cluster-management/multicluster-controlplane=${IMAGE_NAME}
+    cd ${KUBE_ROOT}
+    echo "$(cat hack/deploy/controlplane/ocmconfig.yaml)"
+    ${KUSTOMIZE} build ${KUBE_ROOT}/hack/deploy/controlplane | ${KUBECTL} apply -f -
+    mv ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml.tmp ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+    mv ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml.tmp ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml
+    mv ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml.tmp  ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+}
+
+function wait_for_kubeconfig_secret {
+    echo "Waiting for kubeconfig..."
+    while true; do
+        oc -n ${HUB_NAME} get secret kubeconfig &>/dev/null
+        if [ $? -ne 0 ]; then
+            continue
+        else
+            break
+        fi
+    done
+    oc -n ${HUB_NAME} get secret kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d > ${HUB_NAME}.kubeconfig 
 }
 
 function check_multicluster-controlplane {
     for i in {1..10}; do
         echo "Checking multicluster-controlplane..."
-        RESULT=$(${KUBECTL} --kubeconfig=${OCM_DEPLOY_DIRECTORY}/cert-${HUB_NAME}/kubeconfig api-resources | grep managedclusters)
+            RESULT=$(${KUBECTL} --kubeconfig=${HUB_NAME}.kubeconfig api-resources | grep managedclusters)
         if [ -n "${RESULT}" ]; then
             echo "#### multicluster-controlplane ${HUB_NAME} is ready ####"
             break
@@ -231,11 +166,33 @@ function check_multicluster-controlplane {
     done
 }
 
-kube::util::test_openssl_installed
-kube::util::ensure-cfssl
+###############################################################################
+create_variables $configfile
 
-set_service_accounts
+if [[ -z "${deployToOCP:+x}" || "${deployToOCP}" != "true" ]]; then
+    echo "deployToOCP should be set to true"
+    exit 1
+fi
+
+if [[ -z "${apiserver_externalHostname:+x}" ]]; then
+    echo "externalHostname not set, using default OCP format..."
+fi
+
+if [[ -z "${apiserver_caFile:+x}" || -z "${apiserver_caKeyFile:+x}" ]]; then 
+    echo "caFile, caKeyFile not set, using self-generated root-ca..."
+    apiserver_caFile=""
+    apiserver_caKeyFile="" 
+fi
+
+if [[ -z "${etcd_mode:+x}" || "${etcd_mode}" == "external" ]]; then
+    if [[ -z "${etcd_caFile:+x}" || -z "${etcd_certFile:+x}" || -z "${etcd_keyFile:+x}" ]]; then 
+        echo "etcd_caFile, etcd_certFile, etcd_keyFile should not be set to empty while using external etcd"
+        exit 1
+    fi
+fi
+
 start_apiserver
+wait_for_kubeconfig_secret
 check_multicluster-controlplane
-echo "#### Use '${KUBECTL} --kubeconfig=${OCM_DEPLOY_DIRECTORY}/cert-${HUB_NAME}/kubeconfig' to use the aggregated API server. ####"
+echo "#### Use '${KUBECTL} --kubeconfig=${HUB_NAME}.kubeconfig' to use the aggregated API server. ####"
 echo ""
