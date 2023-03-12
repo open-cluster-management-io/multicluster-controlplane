@@ -1,15 +1,9 @@
 #!/usr/bin/env bash
 # Copyright Contributors to the Open Cluster Management project
 
-KUBE_ROOT=$(pwd)
+REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/.." ; pwd -P)"
 
-configfile=${KUBE_ROOT}/ocmconfig.yaml
-if [ ! -f "$configfile" ] ; then 
-    echo "config file $configfile do not exist, create it first!" 
-    exit 1
-fi 
-
-GO_OUT=${GO_OUT:-"${KUBE_ROOT}/bin"}
+GO_OUT=${GO_OUT:-"${REPO_DIR}/bin"}
 
 WAIT_FOR_URL_API_SERVER=${WAIT_FOR_URL_API_SERVER:-60}
 MAX_TIME_FOR_URL_API_SERVER=${MAX_TIME_FOR_URL_API_SERVER:-1}
@@ -17,20 +11,21 @@ MAX_TIME_FOR_URL_API_SERVER=${MAX_TIME_FOR_URL_API_SERVER:-1}
 FEATURE_GATES=${FEATURE_GATES:-"DefaultClusterSet=true,OpenAPIV3=false"}
 
 # enable self managed
-ENABLE_SELF_MANAGED=${ENABLE_SELF_MANAGED:-"true"}
+ENABLE_SELF_MANAGED=${ENABLE_SELF_MANAGED:-"false"}
 
 # Stop right away if the build fails
 set -e
 
-source "${KUBE_ROOT}/hack/lib/init.sh"
-kube::util::ensure-gnu-sed
+source "${REPO_DIR}/hack/lib/init.sh"
+source "${REPO_DIR}/hack/lib/yaml.sh"
 
-source "${KUBE_ROOT}/hack/lib/yaml.sh"
 # Shut down anyway if there's an error.
 set +e
 
 LOG_DIR=${LOG_DIR:-"/tmp"}
-CONTROLPLANE_SUDO=$(echo "sudo -E")
+
+# TODO consider to have a flag to save/remove the output data
+mkdir -p ${REPO_DIR}/_output/controlplane
 
 function test_apiserver_off {
     # For the common local scenario, fail fast if server is already running.
@@ -43,17 +38,16 @@ function test_apiserver_off {
     fi
 }
 
-cleanup()
-{
+function cleanup() {
     echo "Cleaning up..."
     # Check if the API server is still running
     [[ -n "${APISERVER_PID-}" ]] && kube::util::read-array APISERVER_PIDS < <(pgrep -P "${APISERVER_PID}" ; ps -o pid= -p "${APISERVER_PID}")
-    [[ -n "${APISERVER_PIDS-}" ]] && sudo kill "${APISERVER_PIDS[@]}" 2>/dev/null
+    [[ -n "${APISERVER_PIDS-}" ]] && kill "${APISERVER_PIDS[@]}" 2>/dev/null
     exit 0
 }
 
 function healthcheck {
-    if [[ -n "${APISERVER_PID-}" ]] && ! sudo kill -0 "${APISERVER_PID}" 2>/dev/null; then
+    if [[ -n "${APISERVER_PID-}" ]] && ! kill -0 "${APISERVER_PID}" 2>/dev/null; then
         warning_log "API server terminated unexpectedly, see ${APISERVER_LOG}"
         APISERVER_PID=
     fi
@@ -79,19 +73,10 @@ function start_etcd {
 }
 
 function start_apiserver {
-    self_managed_arg=""
-    controlplane_cert_dir_arg=""
-    if [[ "${ENABLE_SELF_MANAGED}" == true ]]; then
-        self_managed_arg="--self-management"
-        controlplane_cert_dir_arg="--controlplane-cert-dir=${configDirectory}/cert"
-    fi
-
     APISERVER_LOG=${LOG_DIR}/kube-apiserver.log
-    ${CONTROLPLANE_SUDO} "${GO_OUT}/multicluster-controlplane" \
+    "${GO_OUT}/multicluster-controlplane" \
     "server" \
-    "${self_managed_arg}" \
-    "${controlplane_cert_dir_arg}" \
-    --config-file="${configfile}" \
+    --controlplane-config-dir="${config_dir}" \
     --feature-gates="${FEATURE_GATES}"  >"${APISERVER_LOG}" 2>&1 &
     APISERVER_PID=$!
     
@@ -99,41 +84,39 @@ function start_apiserver {
     kube::util::wait_for_url "https://127.0.0.1:${apiserver_port}/healthz" "apiserver: " 1 "${WAIT_FOR_URL_API_SERVER}" "${MAX_TIME_FOR_URL_API_SERVER}" \
     || { echo "check apiserver logs: ${APISERVER_LOG}" ; exit 1 ; }
     
-    echo "use 'kubectl --kubeconfig=${configDirectory}/cert/kube-aggregator.kubeconfig' to use the aggregated API server"
+    echo "use 'kubectl --kubeconfig=${data_dir}/cert/kube-aggregator.kubeconfig' to use the aggregated API server"
+    echo "$APISERVER_PID" > "${REPO_DIR}/_output/controlplane/controlpane_pid"
+    chmod a+r ${data_dir}/cert/kube-aggregator.kubeconfig
 }
 
-
 ###############################################################################
-create_variables $configfile
+config_dir=${CONFIG_DIR:-"${REPO_DIR}/_output/controlplane"}
+data_dir=${REPO_DIR}/_output/controlplane/.ocm
 
-echo "environment checking..."
-if [[ ! -z "${deployToOCP:+x}" ]];then 
-    if [[ "${deployToOCP}" == "true" ]]; then
-    echo "deployToOCP should be set to false while running multicluster-controplane locally!"
-    exit 1
-    fi
-fi
-
-if [[ -z "${apiserver_externalHostname:+x}" ]]; then 
-    echo "apiserver_externalHostname not set, using local IP address..."
+if [ ! -f "${config_dir}/ocmconfig.yaml" ] ; then
     if [[ "$(uname)" == "Darwin" ]]; then
-        apiserver_externalHostname=$(ifconfig en0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
+        externalHostName=$(ifconfig en0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
     else
-        apiserver_externalHostname=$(ifconfig eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
+        externalHostName=$(ifconfig eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*')
     fi
-fi
-if [ ! $apiserver_externalHostname ] ; then
-    echo "cannot get local IP address, apiserver_externalHostname should be set"
-    exit 1
-else 
-    sed -i '/externalHostname/d' ${KUBE_ROOT}/ocmconfig.yaml
-    sed -i "$(sed -n  '/apiserver/=' ${KUBE_ROOT}/ocmconfig.yaml) a \  externalHostname: ${apiserver_externalHostname}" ${KUBE_ROOT}/ocmconfig.yaml
+
+    cat > "${config_dir}/ocmconfig.yaml" <<EOF
+dataDirectory: ${data_dir}
+apiserver:
+  externalHostname: $externalHostName
+  port: 9443
+  caFile: 
+  caKeyFile: 
+etcd:
+  mode: embed
+EOF
 fi
 
-if [[ -z "${apiserver_port:+x}" ]]; then 
-    echo "apiserver_port should be set"
-    exit 1
-fi
+create_variables "${config_dir}/ocmconfig.yaml"
+
+echo "multicluster-controlplane configurations in ${config_dir}/ocmconfig.yaml"
+cat "${config_dir}/ocmconfig.yaml"
+echo ""
 
 if [[ ! -z "${etcd_mode:+x}" && "${etcd_mode}" == "external" ]]; then
     # validate that etcd is: not running, in path, and has minimum required version.
@@ -145,7 +128,7 @@ test_apiserver_off
 
 trap cleanup EXIT
 
-echo "Starting service now!"
+echo "Starting apiserver ..."
 if [[ ! -z "${etcd_mode:+x}" && "${etcd_mode}" == "external" ]]; then
     start_etcd
 fi

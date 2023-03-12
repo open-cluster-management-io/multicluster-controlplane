@@ -6,8 +6,7 @@ By default, the multicluster controlplane would try to find ocmconfig.yaml in th
 
 Here is a simple file of config-file.yaml:
 ```yaml
-configDirectory: ".ocmconfig"
-deployToOCP: true
+dataDirectory: "/.ocm"
 apiserver:
   externalHostname: "http://abcdefg.com"
   port: 9443
@@ -26,9 +25,7 @@ etcd:
 
 The yaml content shown above is a config file with all fields filled in. Following this to better understand the config file.
 
-Field `configDirectory` is a string variable indicating the directory to store generated certs ,embed etcd data and kubeconfig, etc. While this field is missed in the config file, the default value `.ocmconfig` makes sense.
-
-Field `deployToOCP` is a boolean variable indicating whether we are deploy the multicluster controlplane while we need to do some modification on generated files.
+Field `dataDirectory` is a string variable indicating the directory to store generated certs ,embed etcd data and kubeconfig, etc. While this field is missed in the config file, the default value `/.ocm` makes sense.
 
 Field `apiserver` contains config for the controlplane apiserver:
 - `externalHostname` is a string variable indicating the hostname for external access. The value equals to local IP of running environment if the field is empty/missed.

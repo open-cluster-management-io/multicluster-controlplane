@@ -8,22 +8,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/pflag"
 	"k8s.io/apiserver/pkg/authentication/user"
-	logsapi "k8s.io/component-base/logs/api/v1"
-	"k8s.io/klog"
-	netutils "k8s.io/utils/net"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+
 	"open-cluster-management.io/multicluster-controlplane/pkg/certificate/certchains"
-	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
+	"open-cluster-management.io/multicluster-controlplane/pkg/servers/configs"
 	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
-
-func NewMulticlusterCertificateConfig() *MulticlusterCertificateConfig {
-	return &MulticlusterCertificateConfig{
-		ApiHostIP: "127.0.0.1",
-		RunConfig: util.NewDefaultControlplaneRunConfig(),
-	}
-}
 
 type MulticlusterCertificateConfig struct {
 	// these variables are used to sign certs
@@ -31,107 +23,11 @@ type MulticlusterCertificateConfig struct {
 	ApiHostIP string
 	URL       string
 	// runtime config
-	RunConfig *util.ControlplaneRunConfig
+	RunConfig *configs.ControlplaneRunConfig
 }
 
-func (cfg *MulticlusterCertificateConfig) AddFlags(fs *pflag.FlagSet) {
-	cfg.RunConfig.AddFlags(fs)
-}
-
-func (cfg *MulticlusterCertificateConfig) InitCertsForServerRunOptions(o *options.ServerRunOptions) *options.ServerRunOptions {
-	err := cfg.RunConfig.LoadConfig()
-	if err != nil {
-		klog.Fatalf("load config file %s failed: %v ", cfg.RunConfig.ConfigFile, err)
-	}
-
-	if cfg.RunConfig.Apiserver.ExternalHostname == "" {
-		klog.Fatalf("field externalHostname should not be empty")
-	}
-	cfg.ApiHost = cfg.RunConfig.Apiserver.ExternalHostname
-
-	// complete cfg
-	cfg.URL = fmt.Sprintf("https://%s:%d/", cfg.ApiHost, cfg.RunConfig.Apiserver.Port)
-
-	// set flag values
-	//
-	// flags below should not be changed in most cases
-	o.Admission.GenericAdmission.EnablePlugins = []string{
-		"NamespaceLifecycle",
-		"ServiceAccount",
-		"MutatingAdmissionWebhook",
-		"ValidatingAdmissionWebhook",
-		"ResourceQuota",
-		"ManagedClusterMutating",
-		"ManagedClusterValidating",
-		"ManagedClusterSetBindingValidating",
-	} // --enable-admission-plugins="NamespaceLifecycle,ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,ManagedClusterMutating,ManagedClusterValidating,ManagedClusterSetBindingValidating"
-	o.Admission.GenericAdmission.DisablePlugins = []string{}                              // --disable-admission-plugins=""
-	o.Authentication.APIAudiences = []string{}                                            // --api-audiences=""
-	o.Authentication.BootstrapToken.Enable = true                                         // --enable-bootstrap-token-auth
-	o.Authentication.ServiceAccounts.Issuers = []string{"https://kubernetes.default.svc"} // --service-account-issuer="https://kubernetes.default.svc"
-	o.Authentication.ServiceAccounts.Lookup = true                                        // --service-account-lookup=true
-	o.Authorization.Modes = []string{"RBAC"}                                              // --authorization-mode=RBAC
-	o.Etcd.StorageConfig.Type = "etcd3"                                                   // --storage-backend="etcd3"
-	o.Features.EnableProfiling = false                                                    // --profiling=false
-	o.GenericServerRunOptions.EnablePriorityAndFairness = false                           // --enable-priority-and-fairness="false"
-	o.ServiceClusterIPRanges = "10.0.0.0/24"                                              // --service-cluster-ip-range="10.0.0.0/24"
-	o.SecureServing.BindAddress = netutils.ParseIPSloppy("0.0.0.0")                       // --bind-address="0.0.0.0"
-
-	// --secure-port
-	o.SecureServing.BindPort = cfg.RunConfig.Apiserver.Port
-
-	if cfg.RunConfig.Etcd.Mode == "embed" {
-		localEtcdHost := "localhost"
-		etcdPort := 2379
-		localEtcdServer := fmt.Sprintf("http://%s:%d", localEtcdHost, etcdPort)
-
-		o.Etcd.StorageConfig.Transport.ServerList = []string{localEtcdServer} // --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}"
-		o.ExtraOptions.EmbeddedEtcd.Enabled = true
-		o.ExtraOptions.EmbeddedEtcd.Directory = cfg.RunConfig.ConfigDirectory
-	} else { // "external"
-		o.Etcd.StorageConfig.Transport.ServerList = cfg.RunConfig.Etcd.Servers
-		o.Etcd.StorageConfig.Transport.TrustedCAFile = cfg.RunConfig.Etcd.CAFile
-		o.Etcd.StorageConfig.Transport.CertFile = cfg.RunConfig.Etcd.CertFile
-		o.Etcd.StorageConfig.Transport.KeyFile = cfg.RunConfig.Etcd.KeyFile
-		o.Etcd.StorageConfig.Prefix = cfg.RunConfig.Etcd.Prefix
-	}
-
-	// sign certs
-	certChains, err := InitCerts(cfg)
-	if err != nil {
-		klog.Fatalf("failed to retrieve the necessary certificates: %v", err)
-		return nil
-	}
-
-	// generate kubeconfig
-	if err := InitKubeconfig(cfg, certChains); err != nil {
-		klog.Fatalf("failed to create the necessary kubeconfigs for internal components: %v", err)
-		return nil
-	}
-
-	// apply certs and default flag values to options
-	certsDir := CertsDirectory(cfg.RunConfig.ConfigDirectory)
-	sakFile := ServiceAccountKeyFile(certsDir)
-	servingCert := ServingCertFile(certsDir)
-	servingKey := ServingKeyFile(certsDir)
-	clientCACert := ClientCACertFile(certsDir)
-	clientCAKey := ClientCAKeyFile(certsDir)
-
-	o.Authentication.ClientCert.ClientCA = clientCACert           // --client-ca-file="${CERT_CA_CERT}"
-	o.Authentication.ServiceAccounts.KeyFiles = []string{sakFile} // --service-account-key-file="${SERVICE_ACCOUNT_KEY}"
-	o.ExtraOptions.ClientKeyFile = clientCAKey
-	o.KubeControllerManagerOptions.SAController.ServiceAccountKeyFile = sakFile // --service-account-private-key-file="${SERVICE_ACCOUNT_KEY}"
-	o.ServiceAccountSigningKeyFile = sakFile                                    // --service-account-signing-key-file="${SERVICE_ACCOUNT_KEY}"
-	o.SecureServing.ServerCert.CertKey.CertFile = servingCert                   // --tls-cert-file="${SERVING_CERT}"
-	o.SecureServing.ServerCert.CertKey.KeyFile = servingKey                     // --tls-private-key-file="${SERVING_CERT_KEY}"
-
-	o.Logs.Verbosity = logsapi.VerbosityLevel(uint32(7))
-
-	return o
-}
-
-func InitCerts(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChains, error) {
-	certChains, err := certSetup(cfg)
+func InitCerts(cfg *configs.ControlplaneRunConfig, host string) (*certchains.CertificateChains, error) {
+	certChains, err := certSetup(cfg, host)
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +49,8 @@ func InitCerts(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 	return certChains, err
 }
 
-func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChains, error) {
-	certificateDirectory := CertsDirectory(cfg.RunConfig.ConfigDirectory)
+func certSetup(cfg *configs.ControlplaneRunConfig, host string) (*certchains.CertificateChains, error) {
+	certificateDirectory := CertsDirectory(cfg.DataDirectory)
 	//------------------------------
 	// CA CERTIFICATE SIGNER
 	//------------------------------
@@ -165,8 +61,8 @@ func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 	)
 
 	cai := certchains.NewCAInfo()
-	if cfg.RunConfig.IsCAProvided() {
-		cai.SetCertFile(cfg.RunConfig.Apiserver.CAFile).SetKeyFile(cfg.RunConfig.Apiserver.CAKeyFile)
+	if cfg.IsCAProvided() {
+		cai.SetCertFile(cfg.Apiserver.CAFile).SetKeyFile(cfg.Apiserver.CAKeyFile)
 	} else {
 		cai.SetCertFile(DefaultRootCAFile(certificateDirectory)).SetKeyFile(DefaultRootCAKeyFile(certificateDirectory)).SetSerialFile(DefaultRootCASerialFile(certificateDirectory))
 	}
@@ -190,12 +86,14 @@ func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 				ValidityDays: ShortLivedCertificateValidityDays,
 			},
 			Hostnames: []string{
+				host,
 				"kubernetes.default",
 				"kubernetes.default.svc",
+				fmt.Sprintf("multicluster-controlplane.%s", util.GetComponentNamespace()),
+				fmt.Sprintf("multicluster-controlplane.%s.svc", util.GetComponentNamespace()),
 				"localhost",
-				cfg.ApiHostIP,
-				cfg.ApiHost,
-				"10.0.0.1", // ${FIRST_SERVICE_CLUSTER_IP}
+				"127.0.0.1",
+				"10.0.0.1",
 			},
 		},
 		&certchains.ServingCertificateSigningRequestInfo{
@@ -206,7 +104,7 @@ func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 			Hostnames: []string{
 				"api.kube-public.svc",
 				"localhost",
-				cfg.ApiHostIP,
+				"127.0.0.1",
 			},
 		},
 	)
@@ -269,7 +167,7 @@ func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 	// handle etcd certs:
 	// -	if use embedded etcd, generate certs;
 	// -	if use external etcd, do nothing.
-	if cfg.RunConfig.IsEmbedEtcd() {
+	if cfg.IsEmbedEtcd() {
 		//------------------------------
 		// 	ETCD CERTIFICATE SIGNER
 		//------------------------------
@@ -314,7 +212,7 @@ func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 		[]string{RootCACertDirName, ClientCACertDirName},
 	)
 
-	if cfg.RunConfig.IsEmbedEtcd() {
+	if cfg.IsEmbedEtcd() {
 		cc.WithCABundle(
 			EtcdCABundlePath(certificateDirectory),
 			[]string{RootCACertDirName, EtcdCACertDirName},
@@ -322,7 +220,7 @@ func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 	}
 
 	certChains, err := cc.Complete(&certchains.SigningConfig{
-		ApiHost: cfg.ApiHost,
+		ApiHost: host,
 	})
 	if err != nil {
 		return nil, err
@@ -337,10 +235,11 @@ func certSetup(cfg *MulticlusterCertificateConfig) (*certchains.CertificateChain
 }
 
 func InitKubeconfig(
-	cfg *MulticlusterCertificateConfig,
+	cfg *configs.ControlplaneRunConfig,
 	certChains *certchains.CertificateChains,
+	host, url string,
 ) error {
-	inClusterTrustBundlePEM, err := os.ReadFile(TotalServerCABundlePath(CertsDirectory(cfg.RunConfig.ConfigDirectory)))
+	inClusterTrustBundlePEM, err := os.ReadFile(TotalServerCABundlePath(CertsDirectory(cfg.DataDirectory)))
 	if err != nil {
 		return fmt.Errorf("failed to load the in-cluster trust bundle: %v", err)
 	}
@@ -350,37 +249,38 @@ func InitKubeconfig(
 		return err
 	}
 
-	if cfg.RunConfig.IsDeployToOCP() {
-		if err := util.KubeconfigWriteToFile(
-			KubeConfigFile(CertsDirectory(cfg.RunConfig.ConfigDirectory)),
-			fmt.Sprintf("https://%s:%d/", "127.0.0.1", 9443),
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		certDir := CertsDirectory(cfg.DataDirectory)
+		klog.Info("The current runtime environment is outside the cluster, save to control plane kubeconfig to %q", certDir)
+		return util.KubeconfigWriteToFile(
+			KubeConfigFile(certDir),
+			url,
 			inClusterTrustBundlePEM,
 			kubeconfigCertPEM,
 			kubeconfigKeyPEM,
-		); err != nil {
-			return err
-		}	
-
-		// port shoule be set to 443 because route maped 9443 on local to 443 on external host
-		if err := util.KubeconfigWroteToSecret(fmt.Sprintf("https://%s:%d/", cfg.ApiHost, 443),
-			inClusterTrustBundlePEM,
-			kubeconfigCertPEM,
-			kubeconfigKeyPEM); err != nil {
-			return err
-		}
-	} else {
-		if err := util.KubeconfigWriteToFile(
-			KubeConfigFile(CertsDirectory(cfg.RunConfig.ConfigDirectory)),
-			cfg.URL,
-			inClusterTrustBundlePEM,
-			kubeconfigCertPEM,
-			kubeconfigKeyPEM,
-		); err != nil {
-			return err
-		}
+		)
 	}
 
-	return nil
+	// save inner kubeconfig to the data directory
+	if err := util.KubeconfigWriteToFile(
+		KubeConfigFile(CertsDirectory(cfg.DataDirectory)),
+		fmt.Sprintf("https://127.0.0.1:%d/", 9443),
+		inClusterTrustBundlePEM,
+		kubeconfigCertPEM,
+		kubeconfigKeyPEM,
+	); err != nil {
+		return err
+	}
+
+	// expose the controlplane kubeconfig in a secret
+	// port shoule be set to 443 because route maped 9443 on local to 443 on external host
+	return util.KubeconfigWroteToSecret(
+		config,
+		fmt.Sprintf("https://%s:%d/", host, 443),
+		inClusterTrustBundlePEM,
+		kubeconfigCertPEM,
+		kubeconfigKeyPEM)
 }
 
 // certsToRegenerate returns paths to certificates in the given certificate chains

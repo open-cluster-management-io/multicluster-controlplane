@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
 # Copyright Contributors to the Open Cluster Management project
 
-KUBECTL=oc
-KUSTOMIZE=kustomize
-if [ ! $KUBECTL >& /dev/null ] ; then
-    echo "Failed to run $KUBECTL. Please ensure $KUBECTL is installed"
-    exit 1
-fi
-if [ ! $KUSTOMIZE >& /dev/null ] ; then
-    echo "Failed to run $KUSTOMIZE. Please ensure $KUSTOMIZE is installed"
-    exit 1
+REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/.." ; pwd -P)"
+
+KUBECTL=${KUBECTL:-"kubectl"}
+KUSTOMIZE=${KUSTOMIZE:-"kustomize"}
+
+if ! command -v $KUBECTL >/dev/null 2>&1; then
+  echo "ERROR: command $KUBECTL is not found"
+  exit 1
 fi
 
-KUBE_ROOT=$(pwd)
-
-configfile=${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
-if [ ! -f "$configfile" ] ; then 
-    echo "config file $configfile do not exist, create it first!" 
-    exit 1
-fi 
+if ! command -v $KUSTOMIZE >/dev/null 2>&1; then
+  echo "ERROR: command $KUSTOMIZE is not found"
+  exit 1
+fi
 
 HUB_NAME=${HUB_NAME:-"multicluster-controlplane"}
 IMAGE_NAME=${IMAGE_NAME:-"quay.io/open-cluster-management/multicluster-controlplane"}
@@ -27,7 +23,7 @@ IMAGE_NAME=${IMAGE_NAME:-"quay.io/open-cluster-management/multicluster-controlpl
 echo "* Testing connection"
 HOST_URL=$(${KUBECTL} -n openshift-console get routes console -o jsonpath='{.status.ingress[0].routerCanonicalHostname}')
 if [ $? -ne 0 ]; then
-    echo "ERROR: Make sure you are logged into an OpenShift Container Platform before running this script"
+    echo "ERROR: make sure you are logged into an OpenShift Container Platform before running this script"
     exit 1
 fi
 
@@ -42,40 +38,31 @@ API_HOST="multicluster-controlplane-${HUB_NAME}.${API_HOST_POSTFIX}"
 
 # Stop right away if the build fails
 set -e
-
-source "${KUBE_ROOT}/hack/lib/init.sh"
-kube::util::ensure-gnu-sed
-
-source "${KUBE_ROOT}/hack/lib/yaml.sh"
+source "${REPO_DIR}/hack/lib/init.sh"
+source "${REPO_DIR}/hack/lib/yaml.sh"
 
 # Shut down anyway if there's an error.
 set +e
 
-CERTS_DIR="${KUBE_ROOT}/hack/deploy/controlplane/certs"
+CERTS_DIR="${REPO_DIR}/hack/deploy/controlplane/certs"
 IN_POD_CERTS_DIR="/controlplane_config"
 
 function start_apiserver {
-    cp ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml  ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml.tmp 
-
-    if [[ -z "${apiserver_externalHostname:+x}" ]]; then 
-        sed -i '/externalHostname/d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
-        sed -i "$(sed -n  '/apiserver/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  externalHostname: ${API_HOST}" ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
-    fi
-
-    cp ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml  ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml.tmp
-    cp ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml.tmp
+    cp ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml  ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml.tmp
+    cp ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml  ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml.tmp
+    cp ${REPO_DIR}/hack/deploy/controlplane/deployment.yaml ${REPO_DIR}/hack/deploy/controlplane/deployment.yaml.tmp
 
     # copy root-ca to ca directory
     if [[ ! -z "${apiserver_caFile}" && ! -z "${apiserver_caKeyFile}" ]]; then 
         mkdir -p ${CERTS_DIR}
-        cp -f ${KUBE_ROOT}/${apiserver_caFile} ${CERTS_DIR}/root-ca.crt
-        cp -f ${KUBE_ROOT}/${apiserver_caKeyFile} ${CERTS_DIR}/root-ca.key
+        cp -f ${REPO_DIR}/${apiserver_caFile} ${CERTS_DIR}/root-ca.crt
+        cp -f ${REPO_DIR}/${apiserver_caKeyFile} ${CERTS_DIR}/root-ca.key
         # add to kustomize
-        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/root-ca.crt" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
-        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/root-ca.key" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/root-ca.crt" ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/root-ca.key" ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml
         # modify config file
-        sed -i "s,${apiserver_caFile},${IN_POD_CERTS_DIR}/root-ca.crt," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
-        sed -i "s,${apiserver_caKeyFile},${IN_POD_CERTS_DIR}/root-ca.key," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+        sed -i "s,${apiserver_caFile},${IN_POD_CERTS_DIR}/root-ca.crt," ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
+        sed -i "s,${apiserver_caKeyFile},${IN_POD_CERTS_DIR}/root-ca.key," ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
     fi
 
     # set etcd mode
@@ -90,92 +77,104 @@ function start_apiserver {
 
         if [[ -z "${etcd_servers:+x}" ]]; then
             # remove previous etcd server values
-            sed -i '/servers/d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
-            sed -i '/  - /d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            sed -i '/servers/d' ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
+            sed -i '/  - /d' ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
             # set etcd servers
-            sed -i "$(sed -n  '/etcd:/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  servers: " ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            sed -i "$(sed -n  '/etcd:/=' ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml) a \  servers: " ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
             CLUSTER_SIZE=$(${KUBECTL} -n ${ETCD_NS} get statefulset.apps/etcd -o jsonpath='{.spec.replicas}')
             for((i=0;i<$CLUSTER_SIZE;i++))
             do
                 ETCD_SERVER="http://etcd-"$i".etcd.${ETCD_NS}:2379"
-                sed -i "$(sed -n  '/servers:/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  - ${ETCD_SERVER}" ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+                sed -i "$(sed -n  '/servers:/=' ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml) a \  - ${ETCD_SERVER}" ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
             done
         fi
 
         if [[ -z "${etcd_prefix:+x}" ]] ; then 
-            sed -i '/prefix/d' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            sed -i '/prefix/d' ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
             # set etcd prefix
-            sed -i "$(sed -n  '/etcd:/=' ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml) a \  prefix: \"${HUB_NAME}\"" ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+            sed -i "$(sed -n  '/etcd:/=' ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml) a \  prefix: \"${HUB_NAME}\"" ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
         fi
 
         mkdir -p ${CERTS_DIR}
-        cp -f ${KUBE_ROOT}/${etcd_caFile} ${CERTS_DIR}/etcd-ca.crt
-        cp -f ${KUBE_ROOT}/${etcd_certFile} ${CERTS_DIR}/etcd-client.crt
-        cp -f ${KUBE_ROOT}/${etcd_keyFile} ${CERTS_DIR}/etcd-client.key
+        cp -f ${REPO_DIR}/${etcd_caFile} ${CERTS_DIR}/etcd-ca.crt
+        cp -f ${REPO_DIR}/${etcd_certFile} ${CERTS_DIR}/etcd-client.crt
+        cp -f ${REPO_DIR}/${etcd_keyFile} ${CERTS_DIR}/etcd-client.key
         # add to kustomize
-        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.key" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
-        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.crt" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
-        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-ca.crt" ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.key" ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-client.crt" ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml
+        sed -i "$(sed -n  '/  - ocmconfig.yaml/=' ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml) a \  - ${CERTS_DIR}/etcd-ca.crt" ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml
         # modify config file
-        sed -i "s,${etcd_caFile},${IN_POD_CERTS_DIR}/etcd-ca.crt," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml 
-        sed -i "s,${etcd_certFile},${IN_POD_CERTS_DIR}/etcd-client.crt," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
-        sed -i "s,${etcd_keyFile},${IN_POD_CERTS_DIR}/etcd-client.key," ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+        sed -i "s,${etcd_caFile},${IN_POD_CERTS_DIR}/etcd-ca.crt," ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml 
+        sed -i "s,${etcd_certFile},${IN_POD_CERTS_DIR}/etcd-client.crt," ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
+        sed -i "s,${etcd_keyFile},${IN_POD_CERTS_DIR}/etcd-client.key," ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
     else 
         echo "invalid value etcd mode"
         exit 1
     fi 
 
-    cd ${KUBE_ROOT}/hack/deploy/controlplane && ${KUSTOMIZE} edit set namespace ${HUB_NAME} && ${KUSTOMIZE} edit set image quay.io/open-cluster-management/multicluster-controlplane=${IMAGE_NAME}
-    cd ${KUBE_ROOT}
+    cd ${REPO_DIR}/hack/deploy/controlplane && ${KUSTOMIZE} edit set namespace ${HUB_NAME}
+    cd ${REPO_DIR}/hack/deploy/controlplane && ${KUSTOMIZE} edit set image quay.io/open-cluster-management/multicluster-controlplane=${IMAGE_NAME}
+    
+    cd ${REPO_DIR}
     echo "$(cat hack/deploy/controlplane/ocmconfig.yaml)"
-    ${KUSTOMIZE} build ${KUBE_ROOT}/hack/deploy/controlplane | ${KUBECTL} apply -f -
-    mv ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml.tmp ${KUBE_ROOT}/hack/deploy/controlplane/kustomization.yaml
-    mv ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml.tmp ${KUBE_ROOT}/hack/deploy/controlplane/deployment.yaml
-    mv ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml.tmp  ${KUBE_ROOT}/hack/deploy/controlplane/ocmconfig.yaml
+    ${KUSTOMIZE} build ${REPO_DIR}/hack/deploy/controlplane | ${KUBECTL} apply -f -
+
+    mv ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml.tmp ${REPO_DIR}/hack/deploy/controlplane/kustomization.yaml
+    mv ${REPO_DIR}/hack/deploy/controlplane/deployment.yaml.tmp ${REPO_DIR}/hack/deploy/controlplane/deployment.yaml
+    mv ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml.tmp  ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
 }
 
 function wait_for_kubeconfig_secret {
     echo "Waiting for kubeconfig..."
     while true; do
-        oc -n ${HUB_NAME} get secret kubeconfig &>/dev/null
+        ${KUBECTL} -n ${HUB_NAME} get secret multicluster-controlplane-kubeconfig &>/dev/null
         if [ $? -ne 0 ]; then
             continue
         else
             break
         fi
     done
-    oc -n ${HUB_NAME} get secret kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d > ${HUB_NAME}.kubeconfig 
+    ${KUBECTL} -n ${HUB_NAME} get secret multicluster-controlplane-kubeconfig -o jsonpath='{.data.kubeconfig}' | base64 -d > ${REPO_DIR}/${HUB_NAME}.kubeconfig 
 }
 
 function check_multicluster-controlplane {
-    for i in {1..10}; do
-        echo "Checking multicluster-controlplane..."
-            RESULT=$(${KUBECTL} --kubeconfig=${HUB_NAME}.kubeconfig api-resources | grep managedclusters)
-        if [ -n "${RESULT}" ]; then
+    for i in {1..30}; do
+        echo "Checking multicluster-controlplane with ${REPO_DIR}/${HUB_NAME}.kubeconfig ..."
+        result=$(${KUBECTL} --kubeconfig=${REPO_DIR}/${HUB_NAME}.kubeconfig api-resources | grep managedclusters)
+        if [ -n "${result}" ]; then
             echo "#### multicluster-controlplane ${HUB_NAME} is ready ####"
             break
         fi
         
-        if [ $i -eq 10 ]; then
-            echo "!!!!!!!!!!  the multicluster-controlplane ${HUB_NAME} is not ready within 30s"
+        if [ $i -eq 30 ]; then
+            echo "The multicluster-controlplane ${HUB_NAME} is not ready within 300s"
             ${KUBECTL} -n ${HUB_NAME} get pods
-            
             exit 1
         fi
-        sleep 2
+        sleep 10
     done
 }
 
 ###############################################################################
-create_variables $configfile
-
-if [[ -z "${deployToOCP:+x}" || "${deployToOCP}" != "true" ]]; then
-    echo "deployToOCP should be set to true"
-    exit 1
+configfile=${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml
+if [ ! -f "$configfile" ] ; then 
+    echo "config file $configfile is not found, use defaul configurations" 
+    cat > ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml <<EOF
+dataDirectory: /.ocm
+apiserver:
+  externalHostname: ${API_HOST}
+  port: 9443
+etcd:
+  mode: embed
+  prefix: $HUB_NAME
+EOF
 fi
 
+create_variables $configfile
+
 if [[ -z "${apiserver_externalHostname:+x}" ]]; then
-    echo "externalHostname not set, using default OCP format..."
+    echo "externalHostname is required"
+    exit 1
 fi
 
 if [[ -z "${apiserver_caFile:+x}" || -z "${apiserver_caKeyFile:+x}" ]]; then 
@@ -194,5 +193,5 @@ fi
 start_apiserver
 wait_for_kubeconfig_secret
 check_multicluster-controlplane
-echo "#### Use '${KUBECTL} --kubeconfig=${HUB_NAME}.kubeconfig' to use the aggregated API server. ####"
+echo "#### Use '${KUBECTL} --kubeconfig=${REPO_DIR}/${HUB_NAME}.kubeconfig' to access the aggregated API server. ####"
 echo ""

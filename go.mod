@@ -9,7 +9,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.8.0
 	go.etcd.io/etcd/server/v3 v3.5.4
 	k8s.io/api v0.25.4
@@ -25,10 +24,11 @@ require (
 	k8s.io/kube-openapi v0.0.0-20220803164354-a70c9af30aea
 	k8s.io/kubernetes v1.25.4
 	k8s.io/utils v0.0.0-20221011040102-427025108f67
-	open-cluster-management.io/api v0.9.0
+	open-cluster-management.io/api v0.9.1-0.20230113024003-6529d52caeeb
 	open-cluster-management.io/clusteradm v0.4.0
 	open-cluster-management.io/placement v0.9.0
 	open-cluster-management.io/registration v0.9.1-0.20221114013223-9878ed071a3b
+	open-cluster-management.io/work v0.10.0
 	sigs.k8s.io/controller-runtime v0.12.3
 )
 
@@ -147,21 +147,13 @@ require (
 )
 
 require (
-	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
-	github.com/magiconair/properties v1.8.1 // indirect
-	github.com/pelletier/go-toml v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/spf13/afero v1.6.0 // indirect
-	github.com/spf13/cast v1.3.0 // indirect
-	github.com/spf13/jwalterweatherman v1.0.0 // indirect
-	github.com/subosito/gotenv v1.2.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect
 	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect
 	google.golang.org/grpc v1.49.0 // indirect
-	gopkg.in/ini.v1 v1.51.0 // indirect
 )
 
 require (

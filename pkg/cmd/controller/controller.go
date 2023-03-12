@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"open-cluster-management.io/multicluster-controlplane/pkg/certificate"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
 
@@ -18,7 +17,6 @@ import (
 )
 
 func NewController() *cobra.Command {
-	cfg := certificate.NewMulticlusterCertificateConfig()
 	options := options.NewServerRunOptions()
 	cmd := &cobra.Command{
 		Use:   "server",
@@ -30,8 +28,6 @@ func NewController() *cobra.Command {
 			if err := logsapi.ValidateAndApply(options.Logs, utilfeature.DefaultFeatureGate); err != nil {
 				return err
 			}
-
-			cfg.InitCertsForServerRunOptions(options)
 
 			stopChan := genericapiserver.SetupSignalHandler()
 			if err := options.Complete(stopChan); err != nil {
@@ -54,7 +50,6 @@ func NewController() *cobra.Command {
 		},
 	}
 
-	cfg.AddFlags(cmd.Flags())
 	options.AddFlags(cmd.Flags())
 	return cmd
 }

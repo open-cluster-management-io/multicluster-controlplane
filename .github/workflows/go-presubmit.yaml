@@ -89,8 +89,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
         timeout-minutes: 15
-      - name: Setup integration
-        run: make setup-integration
       - name: Test integration
         run: make test-integration
         
@@ -119,13 +117,8 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
         timeout-minutes: 15
-      - name: Setup controlplanes on KinD cluster
-        run: |
-          make setup-e2e
-        env:
-          IMAGE_NAME: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}
       - name: Run e2e test
         run: |
           make test-e2e
         env:
-          VERBOSE: 6
+          IMAGE_NAME: quay.io/open-cluster-management/multicluster-controlplane:${{ steps.vars.outputs.label }}

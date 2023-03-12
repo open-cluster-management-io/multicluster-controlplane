@@ -34,19 +34,3 @@ function create_variables() {
     local yaml_file="$1"
     eval "$(parse_yaml "$yaml_file")"
 }
-
-#
-# YAMLFILE=${1}
-# create_variables $YAMLFILE
-# echo ${configDirectory} 
-# echo ${deployToOCP}
-# echo ${apiserver_externalHostname}
-# echo ${apiserver_port}
-# echo ${apiserver_caFile}
-# echo ${apiserver_caKeyFile}
-# echo ${etcd_mode}
-# echo ${etcd_prefix}
-# echo ${etcd_caFile}
-# echo ${etcd_certFile}
-# echo ${etcd_keyFile}
-# echo ${etcd_servers}

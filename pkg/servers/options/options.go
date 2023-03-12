@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -47,7 +48,10 @@ import (
 	"k8s.io/kubernetes/pkg/serviceaccount"
 	netutils "k8s.io/utils/net"
 	kubectrmgroptions "open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/options"
+
+	"open-cluster-management.io/multicluster-controlplane/pkg/certificate"
 	"open-cluster-management.io/multicluster-controlplane/pkg/etcd"
+	"open-cluster-management.io/multicluster-controlplane/pkg/servers/configs"
 )
 
 // ServerRunOptions runs a kubernetes api server.
@@ -92,9 +96,13 @@ type ServerRunOptions struct {
 
 	KubeControllerManagerOptions *kubectrmgroptions.KubeControllerManagerOptions
 
+	// ControlplaneConfigDir contains minimum requried configurations for server
+	ControlplaneConfigDir string
+	// ControlplaneDataDir is used for saving controlplane data
+	ControlplaneDataDir string
+
 	// EnableSelfManagement register the current cluster self as a managed cluster
 	EnableSelfManagement bool
-	ControlplaneCertDir  string
 }
 
 type ExtraOptions struct {
@@ -122,19 +130,65 @@ func NewServerRunOptions() *ServerRunOptions {
 		klog.Fatalf("unable to initialize kube controller manager options: %v", err)
 	}
 
+	// set default flag values
+
+	// --enable-priority-and-fairness="false"
+	genericServerRunOptions := genericoptions.NewServerRunOptions()
+	genericServerRunOptions.EnablePriorityAndFairness = false
+
+	// --storage-backend="etcd3"
+	etcdOptions.StorageConfig.Type = "etcd3"
+
+	// --bind-address="0.0.0.0"
+	secureServing := secureServingOptions.WithLoopback()
+	secureServing.BindAddress = netutils.ParseIPSloppy("0.0.0.0")
+
+	// --profiling=false
+	features := genericoptions.NewFeatureOptions()
+	features.EnableProfiling = false
+
+	// --enable-admission-plugins
+	// --disable-admission-plugins=""
+	admission := NewAdmissionOptions()
+	admission.GenericAdmission.EnablePlugins = []string{
+		"NamespaceLifecycle",
+		"ServiceAccount",
+		"MutatingAdmissionWebhook",
+		"ValidatingAdmissionWebhook",
+		"ResourceQuota",
+		"ManagedClusterMutating",
+		"ManagedClusterValidating",
+		"ManagedClusterSetBindingValidating",
+	}
+	admission.GenericAdmission.DisablePlugins = []string{}
+
+	// --api-audiences=""
+	// --enable-bootstrap-token-auth
+	// --service-account-issuer="https://kubernetes.default.svc"
+	// --service-account-lookup=true
+	authentication := NewBuiltInAuthenticationOptions().WithAll()
+	authentication.APIAudiences = []string{}
+	authentication.BootstrapToken.Enable = true
+	authentication.ServiceAccounts.Issuers = []string{"https://kubernetes.default.svc"}
+	authentication.ServiceAccounts.Lookup = true
+
+	// --authorization-mode=RBAC
+	authorization := NewBuiltInAuthorizationOptions()
+	authorization.Modes = []string{"RBAC"}
+
 	return &ServerRunOptions{
-		GenericServerRunOptions: genericoptions.NewServerRunOptions(),
+		GenericServerRunOptions: genericServerRunOptions,
 		Etcd:                    etcdOptions,
-		SecureServing:           secureServingOptions.WithLoopback(),
+		SecureServing:           secureServing,
 		Audit:                   genericoptions.NewAuditOptions(),
 		Features:                genericoptions.NewFeatureOptions(),
 		Traces:                  genericoptions.NewTracingOptions(),
 		APIEnablement:           genericoptions.NewAPIEnablementOptions(),
 		EgressSelector:          genericoptions.NewEgressSelectorOptions(),
 
-		Admission:      NewAdmissionOptions(),
-		Authentication: NewBuiltInAuthenticationOptions().WithAll(),
-		Authorization:  NewBuiltInAuthorizationOptions(),
+		Admission:      admission,
+		Authentication: authentication,
+		Authorization:  authorization,
 
 		Metrics:                           metrics.NewOptions(),
 		Logs:                              logs.NewOptions(),
@@ -160,8 +214,12 @@ func NewServerRunOptions() *ServerRunOptions {
 		ExtraOptions: &ExtraOptions{
 			EmbeddedEtcd: NewEmbeddedEtcd(),
 		},
+
 		KubeControllerManagerOptions: kubeControllerManagerOptions,
-		ControlplaneCertDir:          "/controlplane/cert",
+
+		ServiceClusterIPRanges: "10.0.0.0/24",
+
+		ControlplaneConfigDir: "/controlplane_config",
 	}
 }
 
@@ -184,13 +242,27 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.ServiceClusterIPRanges, "service-cluster-ip-range", options.ServiceClusterIPRanges, "A CIDR notation IP range from which to assign service cluster IPs. This must not overlap with any IP ranges assigned to nodes or pods. Max of two dual-stack CIDRs is allowed.")
 	fs.BoolVar(&options.EnableAggregatorRouting, "enable-aggregator-routing", options.EnableAggregatorRouting, "Turns on aggregator routing requests to endpoints IP rather than cluster IP.")
 	fs.StringVar(&options.ExtraOptions.ClientKeyFile, "client-key-file", options.ExtraOptions.ClientKeyFile, "client cert key file")
+	fs.StringVar(&options.ControlplaneDataDir, "controlplane-data-dir", options.ControlplaneDataDir, "The controlplane data directory.")
+	fs.StringVar(&options.ControlplaneConfigDir, "controlplane-config-dir", options.ControlplaneConfigDir, "Path to the file directory contains minimum requried configurations for controlplane server.")
 	fs.BoolVar(&options.EnableSelfManagement, "self-management", options.EnableSelfManagement, "Register the current controlplane as a managed cluster.")
-	fs.StringVar(&options.ControlplaneCertDir, "controlplane-cert-dir", options.ControlplaneCertDir, "The controlplane cert directory.")
 }
 
 // Complete set default Options.
 // Should be called after kube-apiserver flags parsed.
+// TODO think about how to refactor this
 func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
+	// Load configurations from config file
+	config, err := configs.LoadConfig(s.ControlplaneConfigDir)
+	if err != nil {
+		return err
+	}
+
+	if config != nil {
+		if err := s.InitServerRunOptions(config); err != nil {
+			return err
+		}
+	}
+
 	// GenericServerRunOptions
 	if err := s.GenericServerRunOptions.DefaultAdvertiseAddress(s.SecureServing.SecureServingOptions); err != nil {
 		return err
@@ -347,6 +419,49 @@ func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
 			delete(s.APIEnablement.RuntimeConfig, key)
 		}
 	}
+	return nil
+}
+
+func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConfig) error {
+	if cfg.Etcd.Mode == "embed" {
+		o.Etcd.StorageConfig.Transport.ServerList = []string{"http://localhost:2379"}
+		o.ExtraOptions.EmbeddedEtcd.Enabled = true
+		o.ExtraOptions.EmbeddedEtcd.Directory = cfg.DataDirectory
+	} else { // "external"
+		o.Etcd.StorageConfig.Transport.ServerList = cfg.Etcd.Servers
+		o.Etcd.StorageConfig.Transport.TrustedCAFile = cfg.Etcd.CAFile
+		o.Etcd.StorageConfig.Transport.CertFile = cfg.Etcd.CertFile
+		o.Etcd.StorageConfig.Transport.KeyFile = cfg.Etcd.KeyFile
+		o.Etcd.StorageConfig.Prefix = cfg.Etcd.Prefix
+	}
+
+	// sign certs
+	apiHost := cfg.Apiserver.ExternalHostname
+	certChains, err := certificate.InitCerts(cfg, apiHost)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve the necessary certificates, %v", err)
+	}
+
+	// generate kubeconfig
+	url := fmt.Sprintf("https://%s:%d/", apiHost, cfg.Apiserver.Port)
+	if err := certificate.InitKubeconfig(cfg, certChains, apiHost, url); err != nil {
+		return fmt.Errorf("failed to create the necessary kubeconfigs for internal components, %v", err)
+	}
+
+	certsDir := certificate.CertsDirectory(cfg.DataDirectory)
+	sakFile := certificate.ServiceAccountKeyFile(certsDir)
+
+	// apply default configs to options
+	o.SecureServing.BindPort = cfg.Apiserver.Port
+	o.Authentication.ClientCert.ClientCA = certificate.ClientCACertFile(certsDir)
+	o.ExtraOptions.ClientKeyFile = certificate.ClientCAKeyFile(certsDir)
+	o.Authentication.ServiceAccounts.KeyFiles = []string{sakFile}
+	o.KubeControllerManagerOptions.SAController.ServiceAccountKeyFile = sakFile
+	o.ServiceAccountSigningKeyFile = sakFile
+	o.SecureServing.ServerCert.CertKey.CertFile = certificate.ServingCertFile(certsDir)
+	o.SecureServing.ServerCert.CertKey.KeyFile = certificate.ServingKeyFile(certsDir)
+	o.ControlplaneDataDir = cfg.DataDirectory
+
 	return nil
 }
 

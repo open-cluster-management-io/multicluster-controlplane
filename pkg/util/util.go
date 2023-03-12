@@ -2,12 +2,12 @@
 package util
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -19,6 +19,11 @@ import (
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
+)
+
+const (
+	defaultComponentNamespace = "multicluster-controlplane"
+	secretName                = "multicluster-controlplane-kubeconfig"
 )
 
 // KubeConfigWithClientCerts creates a kubeconfig authenticating with client cert/key
@@ -35,7 +40,7 @@ func KubeconfigWriteToFile(filename string, clusterURL string, clusterTrustBundl
 			return err
 		}
 	}
-	if err := ioutil.WriteFile(filename, config, 0600); err != nil {
+	if err := os.WriteFile(filename, config, 0600); err != nil {
 		return err
 	}
 	return nil
@@ -43,13 +48,8 @@ func KubeconfigWriteToFile(filename string, clusterURL string, clusterTrustBundl
 
 // KubeConfigWithClientCerts creates a kubeconfig authenticating with client cert/key
 // and write it to secret "kubeconfig"
-func KubeconfigWroteToSecret(clusterURL string, clusterTrustBundle []byte, clientCertPEM []byte, clientKeyPEM []byte) error {
+func KubeconfigWroteToSecret(config *rest.Config, clusterURL string, clusterTrustBundle, clientCertPEM, clientKeyPEM []byte) error {
 	kubeconfig, err := toKubeconfig(clusterURL, clusterTrustBundle, clientCertPEM, clientKeyPEM)
-	if err != nil {
-		return err
-	}
-
-	config, err := rest.InClusterConfig()
 	if err != nil {
 		return err
 	}
@@ -59,35 +59,36 @@ func KubeconfigWroteToSecret(clusterURL string, clusterTrustBundle []byte, clien
 		return err
 	}
 
-	secretName := "kubeconfig"
-	// MY_POD_NAMESPACE have set in deployment.yaml
-	sec, err := clientset.CoreV1().Secrets(os.Getenv("MY_POD_NAMESPACE")).Get(context.Background(), secretName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			newSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: secretName,
-				},
-				Data: map[string][]byte{
-					"kubeconfig": kubeconfig,
-				},
-			}
-			_, err = clientset.CoreV1().Secrets(os.Getenv("MY_POD_NAMESPACE")).Create(context.Background(), newSecret, metav1.CreateOptions{})
-			if err != nil {
-				klog.Errorf("Secret kubeconfig create failed: %v", err)
-				return err
-			}
+	ns := GetComponentNamespace()
+	sec, err := clientset.CoreV1().Secrets(ns).Get(context.Background(), secretName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		newSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: secretName,
+			},
+			Data: map[string][]byte{
+				"kubeconfig": kubeconfig,
+			},
 		}
-		klog.Errorf("get kubeconfig Secret failed: %v", err)
+		_, err := clientset.CoreV1().Secrets(ns).Create(context.Background(), newSecret, metav1.CreateOptions{})
 		return err
 	}
-	sec.Data[secretName] = kubeconfig
-	_, err = clientset.CoreV1().Secrets(os.Getenv("MY_POD_NAMESPACE")).Update(context.Background(), sec, metav1.UpdateOptions{})
+
 	if err != nil {
-		klog.Errorf("Secret kubeconfig update failed: %v", err)
 		return err
 	}
-	klog.Infof("Secret kubeconfig created in Namespace %s", os.Getenv("MY_POD_NAMESPACE"))
+
+	if bytes.Equal(sec.Data["kubeconfig"], kubeconfig) {
+		return nil
+	}
+
+	sec.Data["kubeconfig"] = kubeconfig
+	_, err = clientset.CoreV1().Secrets(ns).Update(context.Background(), sec, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("Secret kubeconfig created in Namespace %s", ns)
 	return nil
 }
 
@@ -139,9 +140,17 @@ func GenerateServiceAccountKey(file string) error {
 	)
 
 	// Write private key to file.
-	if err := ioutil.WriteFile(file, keyPEM, 0700); err != nil {
+	if err := os.WriteFile(file, keyPEM, 0700); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func GetComponentNamespace() string {
+	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return defaultComponentNamespace
+	}
+	return string(nsBytes)
 }
