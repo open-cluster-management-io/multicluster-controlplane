@@ -3,7 +3,6 @@ package agent
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apiserver/pkg/server"
@@ -31,7 +30,6 @@ func NewAgent() *cobra.Command {
 			ctx, terminate := context.WithCancel(shutdownCtx)
 			defer terminate()
 
-			fmt.Println("haha")
 			if err := agentOptions.RunAgent(ctx); err != nil {
 				return err
 			}

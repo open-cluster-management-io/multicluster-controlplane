@@ -5,7 +5,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -63,8 +62,8 @@ func init() {
 }
 
 type AgentOptions struct {
-	registrationAgent *spoke.SpokeAgentOptions
-	kubeConfig        *rest.Config
+	RegistrationAgent *spoke.SpokeAgentOptions
+	KubeConfig        *rest.Config
 	eventRecorder     events.Recorder
 
 	StatusSyncInterval time.Duration
@@ -75,7 +74,7 @@ type AgentOptions struct {
 
 func NewAgentOptions() *AgentOptions {
 	return &AgentOptions{
-		registrationAgent:  spoke.NewSpokeAgentOptions(),
+		RegistrationAgent:  spoke.NewSpokeAgentOptions(),
 		eventRecorder:      events.NewInMemoryRecorder("managed-cluster-agents"),
 		StatusSyncInterval: 10 * time.Second,
 		Burst:              100,
@@ -84,53 +83,53 @@ func NewAgentOptions() *AgentOptions {
 }
 
 func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
-	o.registrationAgent.AddFlags(fs)
+	o.RegistrationAgent.AddFlags(fs)
 	fs.Float32Var(&o.QPS, "spoke-kube-api-qps", o.QPS, "QPS to use while talking with apiserver on spoke cluster.")
 	fs.IntVar(&o.Burst, "spoke-kube-api-burst", o.Burst, "Burst to use while talking with apiserver on spoke cluster.")
 	fs.DurationVar(&o.StatusSyncInterval, "status-sync-interval", o.StatusSyncInterval, "Interval to sync resource status to hub.")
 }
 
 func (o *AgentOptions) WithClusterName(clusterName string) *AgentOptions {
-	o.registrationAgent.ClusterName = clusterName
+	o.RegistrationAgent.ClusterName = clusterName
 	return o
 }
 
-func (o *AgentOptions) WithSpokeKubeconfig(kubeConfig *rest.Config) *AgentOptions {
-	o.kubeConfig = kubeConfig
+func (o *AgentOptions) WithSpokeKubeconfig(KubeConfig *rest.Config) *AgentOptions {
+	o.KubeConfig = KubeConfig
 	return o
 }
 
 func (o *AgentOptions) WithBootstrapKubeconfig(bootstrapKubeconfig string) *AgentOptions {
-	o.registrationAgent.BootstrapKubeconfig = bootstrapKubeconfig
+	o.RegistrationAgent.BootstrapKubeconfig = bootstrapKubeconfig
 	return o
 }
 
 func (o *AgentOptions) WithHubKubeconfigDir(hubKubeconfigDir string) *AgentOptions {
-	o.registrationAgent.HubKubeconfigDir = hubKubeconfigDir
+	o.RegistrationAgent.HubKubeconfigDir = hubKubeconfigDir
 	return o
 }
 
 func (o *AgentOptions) Complete() error {
-	if o.kubeConfig != nil {
+	if o.KubeConfig != nil {
 		return nil
 	}
 
-	if o.registrationAgent.SpokeKubeconfig == "" {
-		kubeConfig, err := rest.InClusterConfig()
+	if o.RegistrationAgent.SpokeKubeconfig == "" {
+		KubeConfig, err := rest.InClusterConfig()
 		if err != nil {
 			return err
 		}
 
-		o.kubeConfig = kubeConfig
+		o.KubeConfig = KubeConfig
 		return nil
 	}
 
-	kubeConfig, err := clientcmd.BuildConfigFromFlags("", o.registrationAgent.SpokeKubeconfig)
+	KubeConfig, err := clientcmd.BuildConfigFromFlags("", o.RegistrationAgent.SpokeKubeconfig)
 	if err != nil {
 		return err
 	}
 
-	o.kubeConfig = kubeConfig
+	o.KubeConfig = KubeConfig
 	return nil
 }
 
@@ -147,10 +146,10 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 		return err
 	}
 
-	o.kubeConfig.QPS = o.QPS
-	o.kubeConfig.Burst = o.Burst
+	o.KubeConfig.QPS = o.QPS
+	o.KubeConfig.Burst = o.Burst
 
-	apiExtensionsClient, err := apiextensionsclient.NewForConfig(o.kubeConfig)
+	apiExtensionsClient, err := apiextensionsclient.NewForConfig(o.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -162,17 +161,17 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 	klog.Infof("Starting registration agent")
 	go func() {
 		ctrlContext := &controllercmd.ControllerContext{
-			KubeConfig:    o.kubeConfig,
+			KubeConfig:    o.KubeConfig,
 			EventRecorder: o.eventRecorder,
 		}
 
-		if err := o.registrationAgent.RunSpokeAgent(ctx, ctrlContext); err != nil {
+		if err := o.RegistrationAgent.RunSpokeAgent(ctx, ctrlContext); err != nil {
 			klog.Fatalf("failed to run registration agent, %v", err)
 		}
 	}()
 
 	klog.Infof("Waiting for hub kubeconfig...")
-	kubeconfigPath := path.Join(o.registrationAgent.HubKubeconfigDir, clientcert.KubeconfigFile)
+	kubeconfigPath := path.Join(o.RegistrationAgent.HubKubeconfigDir, clientcert.KubeconfigFile)
 	if err := o.waitForValidHubKubeConfig(ctx, kubeconfigPath); err != nil {
 		klog.Fatalf("failed to wait hub kubeconfig, %v", err)
 	}
@@ -184,7 +183,7 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 
 	//TODO also need update the appliedmanifestworks finalizer when we stop this pod
 	klog.Infof("Starting work agent")
-	if err := o.startWorkControllers(ctx, hubRestConfig, o.kubeConfig, o.eventRecorder); err != nil {
+	if err := o.startWorkControllers(ctx, hubRestConfig, o.KubeConfig, o.eventRecorder); err != nil {
 		klog.Fatalf("failed to run work agent, %v", err)
 	}
 
@@ -230,14 +229,14 @@ func (o *AgentOptions) waitForValidHubKubeConfig(ctx context.Context, kubeconfig
 				return false, nil
 			}
 
-			keyPath := path.Join(o.registrationAgent.HubKubeconfigDir, clientcert.TLSKeyFile)
+			keyPath := path.Join(o.RegistrationAgent.HubKubeconfigDir, clientcert.TLSKeyFile)
 			if _, err := os.Stat(keyPath); os.IsNotExist(err) {
 				klog.V(4).Infof("TLS key file %q not found", keyPath)
 				return false, nil
 			}
 
-			certPath := path.Join(o.registrationAgent.HubKubeconfigDir, clientcert.TLSCertFile)
-			certData, err := ioutil.ReadFile(path.Clean(certPath))
+			certPath := path.Join(o.RegistrationAgent.HubKubeconfigDir, clientcert.TLSCertFile)
+			certData, err := os.ReadFile(path.Clean(certPath))
 			if err != nil {
 				klog.V(4).Infof("Unable to load TLS cert file %q", certPath)
 				return false, nil
@@ -249,10 +248,10 @@ func (o *AgentOptions) waitForValidHubKubeConfig(ctx context.Context, kubeconfig
 				return false, nil
 			}
 
-			if clusterName != o.registrationAgent.ClusterName || agentName != o.registrationAgent.AgentName {
+			if clusterName != o.RegistrationAgent.ClusterName || agentName != o.RegistrationAgent.AgentName {
 				klog.V(4).Infof("Certificate in file %q is issued for agent %q instead of %q",
 					certPath, fmt.Sprintf("%s:%s", clusterName, agentName),
-					fmt.Sprintf("%s:%s", o.registrationAgent.ClusterName, o.registrationAgent.AgentName))
+					fmt.Sprintf("%s:%s", o.RegistrationAgent.ClusterName, o.RegistrationAgent.AgentName))
 				return false, nil
 			}
 
@@ -298,14 +297,14 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 
 	// Only watch the cluster namespace on hub
 	workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(
-		hubWorkClient, 5*time.Minute, workinformers.WithNamespace(o.registrationAgent.ClusterName))
+		hubWorkClient, 5*time.Minute, workinformers.WithNamespace(o.RegistrationAgent.ClusterName))
 	spokeWorkInformerFactory := workinformers.NewSharedInformerFactory(spokeWorkClient, 5*time.Minute)
 
 	validator := auth.NewFactory(
 		spokeRestConfig,
 		spokeKubeClient,
 		workInformerFactory.Work().V1().ManifestWorks(),
-		o.registrationAgent.ClusterName,
+		o.RegistrationAgent.ClusterName,
 		eventRecorder,
 		restMapper,
 	).NewExecutorValidator(ctx, features.DefaultSpokeMutableFeatureGate.Enabled(feature.ExecutorValidatingCaches))
@@ -315,9 +314,9 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		spokeDynamicClient,
 		spokeKubeClient,
 		spokeAPIExtensionClient,
-		hubWorkClient.WorkV1().ManifestWorks(o.registrationAgent.ClusterName),
+		hubWorkClient.WorkV1().ManifestWorks(o.RegistrationAgent.ClusterName),
 		workInformerFactory.Work().V1().ManifestWorks(),
-		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.registrationAgent.ClusterName),
+		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
 		hubhash, agentID,
@@ -327,9 +326,9 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 
 	addFinalizerController := finalizercontroller.NewAddFinalizerController(
 		eventRecorder,
-		hubWorkClient.WorkV1().ManifestWorks(o.registrationAgent.ClusterName),
+		hubWorkClient.WorkV1().ManifestWorks(o.RegistrationAgent.ClusterName),
 		workInformerFactory.Work().V1().ManifestWorks(),
-		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.registrationAgent.ClusterName),
+		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 	)
 
 	appliedManifestWorkFinalizeController := finalizercontroller.NewAppliedManifestWorkFinalizeController(
@@ -342,9 +341,9 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 
 	manifestWorkFinalizeController := finalizercontroller.NewManifestWorkFinalizeController(
 		eventRecorder,
-		hubWorkClient.WorkV1().ManifestWorks(o.registrationAgent.ClusterName),
+		hubWorkClient.WorkV1().ManifestWorks(o.RegistrationAgent.ClusterName),
 		workInformerFactory.Work().V1().ManifestWorks(),
-		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.registrationAgent.ClusterName),
+		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
 		hubhash,
@@ -353,7 +352,7 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 	unmanagedAppliedManifestWorkController := finalizercontroller.NewUnManagedAppliedWorkController(
 		eventRecorder,
 		workInformerFactory.Work().V1().ManifestWorks(),
-		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.registrationAgent.ClusterName),
+		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
 		hubhash, agentID,
@@ -362,9 +361,9 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 	appliedManifestWorkController := appliedmanifestcontroller.NewAppliedManifestWorkController(
 		eventRecorder,
 		spokeDynamicClient,
-		hubWorkClient.WorkV1().ManifestWorks(o.registrationAgent.ClusterName),
+		hubWorkClient.WorkV1().ManifestWorks(o.RegistrationAgent.ClusterName),
 		workInformerFactory.Work().V1().ManifestWorks(),
-		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.registrationAgent.ClusterName),
+		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
 		hubhash,
@@ -373,9 +372,9 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 	availableStatusController := statuscontroller.NewAvailableStatusController(
 		eventRecorder,
 		spokeDynamicClient,
-		hubWorkClient.WorkV1().ManifestWorks(o.registrationAgent.ClusterName),
+		hubWorkClient.WorkV1().ManifestWorks(o.RegistrationAgent.ClusterName),
 		workInformerFactory.Work().V1().ManifestWorks(),
-		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.registrationAgent.ClusterName),
+		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 		o.StatusSyncInterval,
 	)
 
