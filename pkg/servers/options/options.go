@@ -34,6 +34,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/metrics"
@@ -436,15 +437,13 @@ func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConf
 	}
 
 	// sign certs
-	apiHost := cfg.Apiserver.ExternalHostname
-	certChains, err := certificate.InitCerts(cfg, apiHost)
+	certChains, err := certificate.InitCerts(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve the necessary certificates, %v", err)
 	}
 
 	// generate kubeconfig
-	url := fmt.Sprintf("https://%s:%d/", apiHost, cfg.Apiserver.Port)
-	if err := certificate.InitKubeconfig(cfg, certChains, apiHost, url); err != nil {
+	if err := certificate.InitKubeconfig(cfg, certChains); err != nil {
 		return fmt.Errorf("failed to create the necessary kubeconfigs for internal components, %v", err)
 	}
 
@@ -452,7 +451,12 @@ func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConf
 	sakFile := certificate.ServiceAccountKeyFile(certsDir)
 
 	// apply default configs to options
-	o.SecureServing.BindPort = cfg.Apiserver.Port
+	_, err = rest.InClusterConfig()
+	if err != nil {
+		o.SecureServing.BindPort = cfg.Apiserver.Port
+	} else {
+		o.SecureServing.BindPort = 9443
+	}
 	o.Authentication.ClientCert.ClientCA = certificate.ClientCACertFile(certsDir)
 	o.ExtraOptions.ClientKeyFile = certificate.ClientCAKeyFile(certsDir)
 	o.Authentication.ServiceAccounts.KeyFiles = []string{sakFile}

@@ -72,8 +72,7 @@ deploy-etcd:
 	hack/deploy-etcd.sh
 
 deploy:
-	$(KUBECTL) get ns $(HUB_NAME); if [ $$? -ne 0 ] ; then $(KUBECTL) create ns $(HUB_NAME); fi
-	hack/deploy-multicluster-controlplane.sh
+	hack/deploy-multicluster-controlplane.sh 
 
 destroy:
 	$(KUSTOMIZE) build hack/deploy/controlplane | $(KUBECTL) delete --namespace $(HUB_NAME) --ignore-not-found -f -

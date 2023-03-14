@@ -75,7 +75,7 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/selinux v1.10.0 // indirect
-	github.com/openshift/api v0.0.0-20230120195050-6ba31fa438f2 // indirect
+	github.com/openshift/api v0.0.0-20230120195050-6ba31fa438f2
 	github.com/openshift/client-go v0.0.0-20230120202327-72f107311084 // indirect
 	github.com/pkg/profile v1.3.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect

@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
 const (
@@ -48,7 +49,12 @@ func LoadConfig(configDir string) (*ControlplaneRunConfig, error) {
 	//TODO if c is nil, read configs from others
 
 	if c.Apiserver.ExternalHostname == "" {
-		return nil, fmt.Errorf("external host name is not found")
+		hostname, err := util.GetExternalIP()
+		if err != nil {
+			return nil, fmt.Errorf("external host name is not found: %s", err)
+		}
+		c.Apiserver.ExternalHostname = hostname
+		klog.Infof("using auto discovered external hostname: %+v\n", hostname)
 	}
 
 	klog.Infof("controlplane config: %+v\n", c)
