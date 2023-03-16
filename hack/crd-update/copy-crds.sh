@@ -8,3 +8,7 @@ do
     cp $f ./config/crds/
 done
 
+for f in $SPOKE_CRD_FILES
+do
+    cp $f ./pkg/agent/crds/
+done

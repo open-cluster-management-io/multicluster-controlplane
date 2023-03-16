@@ -2,6 +2,8 @@
 package servers
 
 import (
+	"fmt"
+
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/notfoundhandler"
@@ -27,7 +29,7 @@ type server struct {
 func NewServer(options options.ServerRunOptions) *server {
 	aggregatorConfig, aggregator, err := createServerChain(options)
 	if err != nil {
-		klog.Errorf("create server chain err %v", err)
+		klog.Fatal(err)
 	}
 	s := &server{
 		aggregator:       aggregator,
@@ -65,7 +67,7 @@ func (s *server) AddController(name string, controller controllers.Controller) {
 func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config, *aggregatorapiserver.APIAggregator, error) {
 	kubeAPIServerConfig, serviceResolver, pluginInitializer, err := createKubeAPIServerConfig(o)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create kubeapi server config, %v", err)
 	}
 
 	// If additional API servers are added, they should be gated.
@@ -75,25 +77,25 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 		pluginInitializer, &o, 1, serviceResolver,
 		webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeAPIServerConfig.ExtraConfig.ProxyTransport, kubeAPIServerConfig.GenericConfig.EgressSelector, kubeAPIServerConfig.GenericConfig.LoopbackClientConfig, kubeAPIServerConfig.GenericConfig.TracerProvider))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create apiextensions config, %v", err)
 	}
 
 	notFoundHandler := notfoundhandler.New(kubeAPIServerConfig.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)
 	apiExtensionsServer, err := createAPIExtensionsServer(apiExtensionsConfig,
 		genericapiserver.NewEmptyDelegateWithCustomHandler(notFoundHandler))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create apiextensions server, %v", err)
 	}
 
 	kubeAPIServer, err := createKubeAPIServer(kubeAPIServerConfig, apiExtensionsServer.GenericAPIServer)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create kubeapi server, %v", err)
 	}
 
 	// aggregator comes last in the chain
 	aggregatorConfig, err := createAggregatorConfig(*kubeAPIServerConfig.GenericConfig, &o, kubeAPIServerConfig.ExtraConfig.VersionedInformers, serviceResolver, kubeAPIServerConfig.ExtraConfig.ProxyTransport, pluginInitializer)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create aggregator config, %v", err)
 	}
 	aggregatorServer, err := createAggregatorServer(
 		aggregatorConfig, kubeAPIServer.GenericAPIServer, apiExtensionsServer.Informers,
@@ -102,7 +104,7 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 		o.KubeControllerManagerOptions,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create aggregator server, %v", err)
 	}
 
 	return aggregatorConfig, aggregatorServer, nil
