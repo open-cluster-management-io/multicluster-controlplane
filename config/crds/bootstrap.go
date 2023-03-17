@@ -72,7 +72,7 @@ func WaitForOcmCrdReady(ctx context.Context, dynamicClient dynamic.Interface) bo
 			}).Get(ctx, crdName, metav1.GetOptions{})
 			if err != nil {
 				klog.Infof("waiting ocm crd: %v", err)
-				return false, err
+				return false, nil
 			}
 			klog.Infof("ocm crd(%s) is ready", crdName)
 		}
