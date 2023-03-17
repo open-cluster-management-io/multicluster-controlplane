@@ -143,7 +143,6 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
 		kubeInformers.Coordination().V1().Leases(),
-		ResyncInterval, // TODO: this interval time should be allowed to change from outside
 		controllerContext.EventRecorder,
 	)
 
@@ -160,14 +159,14 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 	managedClusterSetController := managedclusterset.NewManagedClusterSetController(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
-		clusterInformers.Cluster().V1beta1().ManagedClusterSets(),
+		clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
 		controllerContext.EventRecorder,
 	)
 
 	managedClusterSetBindingController := managedclustersetbinding.NewManagedClusterSetBindingController(
 		clusterClient,
-		clusterInformers.Cluster().V1beta1().ManagedClusterSets(),
-		clusterInformers.Cluster().V1beta1().ManagedClusterSetBindings(),
+		clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
+		clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings(),
 		controllerContext.EventRecorder,
 	)
 
@@ -195,13 +194,13 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 	var defaultManagedClusterSetController, globalManagedClusterSetController factory.Controller
 	if features.DefaultHubMutableFeatureGate.Enabled(ocmfeature.DefaultClusterSet) {
 		defaultManagedClusterSetController = managedclusterset.NewDefaultManagedClusterSetController(
-			clusterClient.ClusterV1beta1(),
-			clusterInformers.Cluster().V1beta1().ManagedClusterSets(),
+			clusterClient.ClusterV1beta2(),
+			clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
 			controllerContext.EventRecorder,
 		)
 		globalManagedClusterSetController = managedclusterset.NewGlobalManagedClusterSetController(
-			clusterClient.ClusterV1beta1(),
-			clusterInformers.Cluster().V1beta1().ManagedClusterSets(),
+			clusterClient.ClusterV1beta2(),
+			clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
 			controllerContext.EventRecorder,
 		)
 	}
@@ -235,24 +234,15 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 	schedulingController := scheduling.NewSchedulingController(
 		clusterClient,
 		clusterInformers.Cluster().V1().ManagedClusters(),
-		clusterInformers.Cluster().V1beta1().ManagedClusterSets(),
-		clusterInformers.Cluster().V1beta1().ManagedClusterSetBindings(),
+		clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
+		clusterInformers.Cluster().V1beta2().ManagedClusterSetBindings(),
 		clusterInformers.Cluster().V1beta1().Placements(),
 		clusterInformers.Cluster().V1beta1().PlacementDecisions(),
+		clusterInformers.Cluster().V1alpha1().AddOnPlacementScores(),
 		scheduler,
 		controllerContext.EventRecorder, recorder,
 	)
 
-	schedulingControllerResync := scheduling.NewSchedulingControllerResync(
-		clusterClient,
-		clusterInformers.Cluster().V1().ManagedClusters(),
-		clusterInformers.Cluster().V1beta1().ManagedClusterSets(),
-		clusterInformers.Cluster().V1beta1().ManagedClusterSetBindings(),
-		clusterInformers.Cluster().V1beta1().Placements(),
-		clusterInformers.Cluster().V1beta1().PlacementDecisions(),
-		scheduler,
-		controllerContext.EventRecorder, recorder,
-	)
 	go clusterInformers.Start(ctx.Done())
 	go workInformers.Start(ctx.Done())
 	go addOnInformers.Start(ctx.Done())
@@ -272,7 +262,6 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 		go globalManagedClusterSetController.Run(ctx, 1)
 	}
 	go schedulingController.Run(ctx, 1)
-	go schedulingControllerResync.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil

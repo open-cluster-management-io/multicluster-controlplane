@@ -22,6 +22,5 @@ source "${KUBE_ROOT}/hack/lib/logging.sh"
 
 kube::log::install_errexit
 kube::util::ensure-bash-version
-kube::util::ensure-gnu-sed
 
 source "${KUBE_ROOT}/hack/lib/etcd.sh"

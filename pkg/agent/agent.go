@@ -47,8 +47,8 @@ import (
 var crds embed.FS
 
 var crdStaticFiles = []string{
-	"crds/appliedmanifestworks.work.open-cluster-management.io.crd.yaml",
-	"crds/clusterclaims.clusters.open-cluster-management.io.crd.yaml",
+	"crds/0000_01_work.open-cluster-management.io_appliedmanifestworks.crd.yaml",
+	"crds/0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml",
 }
 
 var (
@@ -66,7 +66,8 @@ type AgentOptions struct {
 	KubeConfig        *rest.Config
 	eventRecorder     events.Recorder
 
-	StatusSyncInterval time.Duration
+	StatusSyncInterval                     time.Duration
+	AppliedManifestWorkEvictionGracePeriod time.Duration
 
 	Burst int
 	QPS   float32
@@ -74,11 +75,12 @@ type AgentOptions struct {
 
 func NewAgentOptions() *AgentOptions {
 	return &AgentOptions{
-		RegistrationAgent:  spoke.NewSpokeAgentOptions(),
-		eventRecorder:      events.NewInMemoryRecorder("managed-cluster-agents"),
-		StatusSyncInterval: 10 * time.Second,
-		Burst:              100,
-		QPS:                50,
+		RegistrationAgent:                      spoke.NewSpokeAgentOptions(),
+		eventRecorder:                          events.NewInMemoryRecorder("managed-cluster-agents"),
+		Burst:                                  100,
+		QPS:                                    50,
+		StatusSyncInterval:                     10 * time.Second,
+		AppliedManifestWorkEvictionGracePeriod: 10 * time.Minute,
 	}
 }
 
@@ -87,6 +89,7 @@ func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.Float32Var(&o.QPS, "spoke-kube-api-qps", o.QPS, "QPS to use while talking with apiserver on spoke cluster.")
 	fs.IntVar(&o.Burst, "spoke-kube-api-burst", o.Burst, "Burst to use while talking with apiserver on spoke cluster.")
 	fs.DurationVar(&o.StatusSyncInterval, "status-sync-interval", o.StatusSyncInterval, "Interval to sync resource status to hub.")
+	fs.DurationVar(&o.AppliedManifestWorkEvictionGracePeriod, "appliedmanifestwork-eviction-grace-period", o.AppliedManifestWorkEvictionGracePeriod, "Grace period for appliedmanifestwork eviction")
 }
 
 func (o *AgentOptions) WithClusterName(clusterName string) *AgentOptions {
@@ -355,6 +358,7 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
+		o.AppliedManifestWorkEvictionGracePeriod,
 		hubhash, agentID,
 	)
 

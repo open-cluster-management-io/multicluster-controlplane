@@ -7,6 +7,7 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"math/rand"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,16 +30,23 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	"k8s.io/kubernetes/cmd/kubeadm/app/util/apiclient"
-	clusteradmhelpers "open-cluster-management.io/clusteradm/pkg/helpers"
 
 	confighelpers "open-cluster-management.io/multicluster-controlplane/config/helpers"
 )
 
-var HubNamespace = "open-cluster-management-hub"
-var HubSA = "hub-sa"
+const (
+	HubNamespace = "open-cluster-management-hub"
+	HubSA        = "hub-sa"
+)
+
+var letterRunes_az09 = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
 //go:embed *.yaml
 var fs embed.FS
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 type Hub struct {
 	TokenID     string
@@ -68,8 +76,8 @@ stringData:
 
 func bootstrapTokenSecret(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
 	var hub = Hub{
-		TokenID:     clusteradmhelpers.RandStringRunes_az09(6),
-		TokenSecret: clusteradmhelpers.RandStringRunes_az09(16),
+		TokenID:     randStringRunes(6, letterRunes_az09),
+		TokenSecret: randStringRunes(16, letterRunes_az09),
 	}
 	tmpl := template.Must(template.New("bootstrap").Parse(BootstrapTokenSecret))
 
@@ -212,4 +220,12 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 
 func bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
 	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, fs)
+}
+
+func randStringRunes(n int, runes []rune) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = runes[rand.Intn(len(runes))]
+	}
+	return string(b)
 }

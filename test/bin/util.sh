@@ -17,7 +17,7 @@ function ensure_clusteradm() {
   curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh
   chmod +x ./install.sh
   export INSTALL_DIR=$bin_dir
-  ./install.sh 0.4.1
+  ./install.sh 0.5.1
   unset INSTALL_DIR
   popd
 }

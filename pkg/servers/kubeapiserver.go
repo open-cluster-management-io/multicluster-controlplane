@@ -1,6 +1,8 @@
 // Copyright Contributors to the Open Cluster Management project
 package servers
 
+// refer to https://github.com/kubernetes/kubernetes/blob/{kubernetes-version}/cmd/kube-apiserver/app/server.go
+
 import (
 	"crypto/tls"
 	"fmt"
@@ -47,6 +49,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
 	rbacrest "k8s.io/kubernetes/pkg/registry/rbac/rest"
 	"k8s.io/kubernetes/pkg/serviceaccount"
+
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
 )
 
@@ -59,7 +62,7 @@ func createKubeAPIServer(kubeAPIServerConfig *controlplane.Config, delegateAPISe
 	return kubeAPIServer, nil
 }
 
-// CreateKubeAPIServerConfig creates all the resources for running the API server, but runs none of them
+// createKubeAPIServerConfig creates all the resources for running the API server, but runs none of them
 func createKubeAPIServerConfig(options options.ServerRunOptions) (
 	*controlplane.Config,
 	aggregatorapiserver.ServiceResolver,
@@ -99,9 +102,6 @@ func createKubeAPIServerConfig(options options.ServerRunOptions) (
 			ExtendExpiration:            options.Authentication.ServiceAccounts.ExtendExpiration,
 
 			VersionedInformers: versionedInformers,
-
-			IdentityLeaseDurationSeconds:      options.IdentityLeaseDurationSeconds,
-			IdentityLeaseRenewIntervalSeconds: options.IdentityLeaseRenewIntervalSeconds,
 		},
 	}
 
@@ -216,14 +216,16 @@ func buildGenericConfig(
 	kubeVersion := version.Get()
 	genericConfig.Version = &kubeVersion
 
-	storageFactoryConfig := kubeapiserver.NewStorageFactoryConfig()
-	storageFactoryConfig.APIResourceConfig = genericConfig.MergedResourceConfig
-	completedStorageFactoryConfig, err := storageFactoryConfig.Complete(options.Etcd)
-	if err != nil {
-		lastErr = err
+	if lastErr = options.Etcd.Complete(genericConfig.StorageObjectCountTracker, genericConfig.DrainedNotify(), genericConfig.AddPostStartHook); lastErr != nil {
 		return
 	}
-	storageFactory, lastErr = completedStorageFactoryConfig.New()
+
+	storageFactoryConfig := kubeapiserver.NewStorageFactoryConfig()
+	storageFactoryConfig.APIResourceConfig = genericConfig.MergedResourceConfig
+	storageFactory, lastErr = storageFactoryConfig.Complete(options.Etcd).New()
+	if lastErr != nil {
+		return
+	}
 	if lastErr != nil {
 		return
 	}
@@ -317,7 +319,7 @@ func BuildPriorityAndFairness(serverRunOptions *genericoptions.ServerRunOptions,
 	}
 	return utilflowcontrol.New(
 		versionedInformer,
-		extclient.FlowcontrolV1beta2(),
+		extclient.FlowcontrolV1beta3(),
 		serverRunOptions.MaxRequestsInFlight+serverRunOptions.MaxMutatingRequestsInFlight,
 		serverRunOptions.RequestTimeout/4,
 	), nil

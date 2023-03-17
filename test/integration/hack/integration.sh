@@ -27,6 +27,7 @@ wait_command "cat ${output}/controlplane/controlpane_pid"
 if [ 0 -ne $? ]; then
   echo "Failed to start controlplane"
   cat /tmp/kube-apiserver.log
+  exit 1
 fi
 cat ${output}/controlplane/controlpane_pid
 
