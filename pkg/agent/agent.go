@@ -112,6 +112,11 @@ func (o *AgentOptions) WithHubKubeconfigDir(hubKubeconfigDir string) *AgentOptio
 	return o
 }
 
+func (o *AgentOptions) WithHubKubeconfigSecreName(hubKubeconfigSecreName string) *AgentOptions {
+	o.RegistrationAgent.HubKubeconfigSecret = hubKubeconfigSecreName
+	return o
+}
+
 func (o *AgentOptions) Complete() error {
 	if o.KubeConfig != nil {
 		return nil
@@ -266,7 +271,7 @@ func (o *AgentOptions) waitForValidHubKubeConfig(ctx context.Context, kubeconfig
 func (o *AgentOptions) startWorkControllers(ctx context.Context,
 	hubRestConfig, spokeRestConfig *rest.Config, eventRecorder events.Recorder) error {
 	hubhash := helper.HubHash(hubRestConfig.Host)
-	agentID := hubhash
+	agentID := fmt.Sprintf("%s-%s", o.RegistrationAgent.ClusterName, hubhash)
 
 	hubWorkClient, err := workclientset.NewForConfig(hubRestConfig)
 	if err != nil {
