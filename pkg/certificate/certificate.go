@@ -17,17 +17,8 @@ import (
 	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
-type MulticlusterCertificateConfig struct {
-	// these variables are used to sign certs
-	ApiHost   string
-	ApiHostIP string
-	URL       string
-	// runtime config
-	RunConfig *configs.ControlplaneRunConfig
-}
-
-func InitCerts(cfg *configs.ControlplaneRunConfig, host string) (*certchains.CertificateChains, error) {
-	certChains, err := certSetup(cfg, host)
+func InitCerts(cfg *configs.ControlplaneRunConfig) (*certchains.CertificateChains, error) {
+	certChains, err := certSetup(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +40,7 @@ func InitCerts(cfg *configs.ControlplaneRunConfig, host string) (*certchains.Cer
 	return certChains, err
 }
 
-func certSetup(cfg *configs.ControlplaneRunConfig, host string) (*certchains.CertificateChains, error) {
+func certSetup(cfg *configs.ControlplaneRunConfig) (*certchains.CertificateChains, error) {
 	certificateDirectory := CertsDirectory(cfg.DataDirectory)
 	//------------------------------
 	// CA CERTIFICATE SIGNER
@@ -86,7 +77,7 @@ func certSetup(cfg *configs.ControlplaneRunConfig, host string) (*certchains.Cer
 				ValidityDays: ShortLivedCertificateValidityDays,
 			},
 			Hostnames: []string{
-				host,
+				cfg.Apiserver.ExternalHostname,
 				"kubernetes.default",
 				"kubernetes.default.svc",
 				fmt.Sprintf("multicluster-controlplane.%s", util.GetComponentNamespace()),
@@ -220,7 +211,7 @@ func certSetup(cfg *configs.ControlplaneRunConfig, host string) (*certchains.Cer
 	}
 
 	certChains, err := cc.Complete(&certchains.SigningConfig{
-		ApiHost: host,
+		ApiHost: cfg.Apiserver.ExternalHostname,
 	})
 	if err != nil {
 		return nil, err
@@ -237,7 +228,6 @@ func certSetup(cfg *configs.ControlplaneRunConfig, host string) (*certchains.Cer
 func InitKubeconfig(
 	cfg *configs.ControlplaneRunConfig,
 	certChains *certchains.CertificateChains,
-	host, url string,
 ) error {
 	inClusterTrustBundlePEM, err := os.ReadFile(TotalServerCABundlePath(CertsDirectory(cfg.DataDirectory)))
 	if err != nil {
@@ -249,9 +239,11 @@ func InitKubeconfig(
 		return err
 	}
 
+	url := fmt.Sprintf("https://%s:%d/", cfg.Apiserver.ExternalHostname, cfg.Apiserver.Port)
+	certDir := CertsDirectory(cfg.DataDirectory)
+
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		certDir := CertsDirectory(cfg.DataDirectory)
 		klog.Info("The current runtime environment is outside the cluster, save to control plane kubeconfig to %q", certDir)
 		return util.KubeconfigWriteToFile(
 			KubeConfigFile(certDir),
@@ -264,7 +256,7 @@ func InitKubeconfig(
 
 	// save inner kubeconfig to the data directory
 	if err := util.KubeconfigWriteToFile(
-		KubeConfigFile(CertsDirectory(cfg.DataDirectory)),
+		KubeConfigFile(certDir),
 		fmt.Sprintf("https://127.0.0.1:%d/", 9443),
 		inClusterTrustBundlePEM,
 		kubeconfigCertPEM,
@@ -274,10 +266,11 @@ func InitKubeconfig(
 	}
 
 	// expose the controlplane kubeconfig in a secret
-	// port shoule be set to 443 because route maped 9443 on local to 443 on external host
+	// for OCP or EKS, port shoule be set to 443 because route/loadbalancer maped 9443 on local to 443 on external host
+	// for kind cluster, port should be in range of 30000-32767
 	return util.KubeconfigWroteToSecret(
 		config,
-		fmt.Sprintf("https://%s:%d/", host, 443),
+		url,
 		inClusterTrustBundlePEM,
 		kubeconfigCertPEM,
 		kubeconfigKeyPEM)

@@ -28,7 +28,7 @@ The yaml content shown above is a config file with all fields filled in. Followi
 Field `dataDirectory` is a string variable indicating the directory to store generated certs ,embed etcd data and kubeconfig, etc. While this field is missed in the config file, the default value `/.ocm` makes sense.
 
 Field `apiserver` contains config for the controlplane apiserver:
-- `externalHostname` is a string variable indicating the hostname for external access. The value equals to local IP of running environment if the field is empty/missed.
+- `externalHostname` is a string variable indicating the hostname for external access.
 - `port` is a integer variable indicating the binding port of multicluster controlplane apiserver. The default value is `9443`.
 - `caFile` is a string variable indicating the CA file provided by user to sign all the serving/client certificates. 
 - `caKeyFile` is a string variable indicating the CA Key file for `caFile`.
@@ -45,7 +45,7 @@ Field `etcd` contains config for the controlplane etcd:
 > For `apiserver` field: If you want to use your own CA pair to sign the certificates, the `caFile` and `caKeyFile` should be set together. Which means that if one of the two fields is missed/empty, the controlplane would self-generate CA pair to sign the necessary certificates. 
 
 
-## Optional: Deploy etcd on Openshift Cluster 
+## Optional: Deploy etcd on Cluster 
 
 #### Install etcd
 Set environment variables and deploy etcd.
@@ -60,7 +60,7 @@ $ make deploy-etcd
 ## Install multicluster-controlplane
 Before start the controlplane, we should make sure config file is in path.
 
-### Option 1: Deploy multicluster-controlplane on Openshift Cluster
+### Option 1: Deploy multicluster-controlplane on Openshift/EKS Cluster
 
 #### Build image
 
@@ -75,6 +75,10 @@ Set environment variables firstly and then deploy controlplane.
 * `HUB_NAME` (optional) is the namespace where the controlplane is deployed in. The default is `multicluster-controlplane`.
 * `IMAGE_NAME` (optional) is the customized image which can override the default image `quay.io/open-cluster-management/multicluster-controlplane:latest`.
 
+Edit the config file:
+1. externalHostname can be missed/set to empty.
+2. port should be set to 443 
+
 For example: 
 
 ```bash
@@ -83,7 +87,18 @@ $ export IMAGE_NAME=<your image>
 $ make deploy
 ```
 
-### Option 2: Run controlplane as a local binary
+### Option 2: Deploy multicluster-controlplane on Kind Cluster
+
+Edit the config file:
+1. externalHostname can be missed/set to empty.
+2. The range of valid port is 30000-32767
+
+Most steps are similar with Option 1, the only difference is deploy command:
+```bash
+$ make deploy
+```
+
+### Option 3: Run controlplane as a local binary
 
 ```bash
 $ make vendor

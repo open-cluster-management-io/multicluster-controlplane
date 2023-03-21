@@ -1,0 +1,9 @@
+# apply this role for controlplane when deploy to kind cluster
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: multicluster-controlplane-route
+rules:
+- apiGroups: ["route.openshift.io/v1"]
+  resources: ["routes"]
+  verbs: ["get", "list", "watch"]
