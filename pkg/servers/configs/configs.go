@@ -52,6 +52,8 @@ func LoadConfig(configDir string) (*ControlplaneRunConfig, error) {
 		hostname, err := util.GetExternalIP()
 		if err != nil {
 			return nil, fmt.Errorf("external host name is not found: %s", err)
+		} else if hostname == "" {
+			return nil, fmt.Errorf("external host name is empty")
 		}
 		c.Apiserver.ExternalHostname = hostname
 		klog.Infof("using auto discovered external hostname: %+v\n", hostname)

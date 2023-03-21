@@ -12,13 +12,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"unsafe"
 
-	routev1 "github.com/openshift/api/route/v1"
+	routev1Client "github.com/openshift/client-go/route/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -63,6 +61,7 @@ func GetExternalIP() (string, error) {
 	// deploy mode, find external ip
 	config, err := rest.InClusterConfig()
 	if err != nil {
+		klog.Infoln("trying to get external hostanme from local IP address")
 		// not running in a cluster, try to find local ip
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
@@ -99,24 +98,19 @@ func GetExternalIP() (string, error) {
 	switch svc.Spec.Type {
 	case serviceClusterIP:
 		// TODO(ycyaoxdu): need to handle other cases
-		dynamicClient, err := dynamic.NewForConfig(config)
+		klog.Infoln("trying to get external hostanme from route")
+		// for ocp
+		routeClient, err := routev1Client.NewForConfig(config)
 		if err != nil {
 			return "", err
 		}
-		// for ocp
-		routeRes := routev1.GroupVersion.WithResource("route")
 		errGet := retry.OnError(retry.DefaultRetry, func(err error) bool {
 			return true
 		}, func() error {
-			unstr, err := dynamicClient.Resource(routeRes).Namespace(ns).Get(context.TODO(), defaultRouteName, metav1.GetOptions{})
+			route, err := routeClient.RouteV1().Routes(ns).Get(context.TODO(), defaultRouteName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
-			route := (*routev1.Route)(unsafe.Pointer(unstr))
-			if len(route.Status.Ingress) == 0 {
-				return fmt.Errorf("ingress not found, retrying")
-			}
-
 			host = route.Status.Ingress[0].Host
 			return nil
 		})
@@ -126,6 +120,7 @@ func GetExternalIP() (string, error) {
 		return host, nil
 
 	case serviceNodePort:
+		klog.Infoln("trying to get external hostanme from node port")
 		// for kind cluster
 		nodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
@@ -139,6 +134,7 @@ func GetExternalIP() (string, error) {
 		}
 
 	case serviceLoadBalancer:
+		klog.Infoln("trying to get external hostanme from load balancer")
 		// for eks
 		errGet := retry.OnError(retry.DefaultRetry, func(err error) bool {
 			return true
@@ -162,6 +158,7 @@ func GetExternalIP() (string, error) {
 	case serviceExternalName:
 		fallthrough
 	default:
+		klog.Infoln("no available external hostanme founded")
 		return "", nil
 	}
 	return "", nil
