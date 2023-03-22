@@ -74,7 +74,7 @@ func (c *ControlplaneRunConfig) IsEmbedEtcd() bool {
 func loadConfigFromFile(configDir string) (*ControlplaneRunConfig, error) {
 	configFile := path.Join(configDir, "ocmconfig.yaml")
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		return nil, nil
+		return nil, err
 	}
 
 	configFileData, err := os.ReadFile(configFile)
