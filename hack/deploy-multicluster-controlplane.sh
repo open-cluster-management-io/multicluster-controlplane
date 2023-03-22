@@ -5,7 +5,7 @@ REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/.." ; pwd -P)"
 
 KUBECTL=${KUBECTL:-"kubectl"}
 KUSTOMIZE=${KUSTOMIZE:-"kustomize"}
-KUBECONFIG=${KUBECONFIG:-"~/.kube/config"}
+KUBECONFIG=${KUBECONFIG:-"${HOME}/.kube/config"}
 
 if ! command -v $KUBECTL >/dev/null 2>&1; then
     echo "ERROR: command $KUBECTL is not found"
