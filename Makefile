@@ -126,3 +126,11 @@ cleanup-integration:
 test-integration: cleanup-integration build
 	./test/integration/hack/integration.sh
 .PHONY: test-integration
+
+build-performance-test:
+	go build -o bin/perftool test/performance/perftool.go
+.PHONY: build-performance-test
+
+test-performance: build-performance-test
+	./test/performance/hack/performance.sh
+.PHONY: test-performance

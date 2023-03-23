@@ -23,6 +23,7 @@ require (
 	k8s.io/kube-aggregator v0.26.1
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/kubernetes v1.26.1
+	k8s.io/metrics v0.26.1
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
 	open-cluster-management.io/api v0.10.1-0.20230310025041-ca0770573954
 	open-cluster-management.io/placement v0.10.0
@@ -180,7 +181,6 @@ replace (
 	k8s.io/kubectl => k8s.io/kubectl v0.26.1
 	k8s.io/kubelet => k8s.io/kubelet v0.26.1
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.26.1
-	k8s.io/metrics => k8s.io/metrics v0.26.1
 	k8s.io/mount-utils => k8s.io/mount-utils v0.26.1
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.26.1
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.26.1
