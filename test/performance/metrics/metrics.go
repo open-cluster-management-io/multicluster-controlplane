@@ -84,7 +84,9 @@ func (g *MetricsRecorder) Record(ctx context.Context, filename string, clusterCo
 				continue
 			}
 
+			// millicore
 			cpu := c.Usage.Cpu()
+			// megabytes
 			memory = memory / 1024 / 1024
 			utils.PrintMsg(fmt.Sprintf("container=%s, counts=%d, cpu=%s, memory=%dMi",
 				c.Name, clusterCounts, cpu, memory))

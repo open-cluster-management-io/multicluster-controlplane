@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	performanceTestLabel = "test.multicluster-controlplane.open-cluster-management.io/performance"
+	performanceTestLabel = "perftest.open-cluster-management.io"
 	defaultNamespace     = "multicluster-controlplane"
 )
 
@@ -44,6 +44,7 @@ type clusterCreateOptions struct {
 	SpokeKubeconfig         string
 	Namespace               string
 	ResourceMetricsFileName string
+	WorkTemplateDir         string
 	Count                   int
 	WorkCount               int
 	Interval                time.Duration
@@ -131,6 +132,7 @@ func (o *clusterCreateOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Namespace, "controlplane-namespace", o.Namespace, "The namespace of multicluster controlplane")
 	fs.StringVar(&o.ClusterNamePrefix, "cluster-name-prefix", o.ClusterNamePrefix, "The name prefix of clusters")
 	fs.StringVar(&o.ResourceMetricsFileName, "res-metrics-file-name", o.ResourceMetricsFileName, "The file name of resource metrics")
+	fs.StringVar(&o.WorkTemplateDir, "work-template-dir", o.WorkTemplateDir, "The directory of work template")
 	fs.IntVar(&o.Count, "count", o.Count, "The count of clusters")
 	fs.IntVar(&o.WorkCount, "work-count", o.WorkCount, "The count of works in one cluster")
 	fs.DurationVar(&o.Interval, "interval", o.Interval, "The interval time of creating cluster, only for psedudo clusters")
@@ -170,6 +172,10 @@ func (o *clusterCreateOptions) Run(ctx context.Context) error {
 
 		if !o.Pseudo {
 			if err := o.registerCluster(ctx, clusterName); err != nil {
+				return err
+			}
+
+			if err := o.createWorks(ctx, clusterName); err != nil {
 				return err
 			}
 		}
@@ -269,18 +275,9 @@ func (o *clusterCreateOptions) registerCluster(ctx context.Context, clusterName 
 		return err
 	}
 
-	utils.PrintMsg(fmt.Sprintf("creating %d works in the cluster %q ...", o.WorkCount, clusterName))
-	for i := 0; i < o.WorkCount; i++ {
-		workName := fmt.Sprintf("%s-work-%d", clusterName, i)
-		if err := o.createManifestWork(ctx, clusterName, workName); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
-// TODO remove this after registration starts supporting auto approve
 func (o *clusterCreateOptions) approveCSR(ctx context.Context, clusterName string) error {
 	return wait.Poll(1*time.Second, 60*time.Second, func() (bool, error) {
 		csrs, err := o.hubKubeClient.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{
@@ -333,15 +330,28 @@ func (o *clusterCreateOptions) waitClusterAvailable(ctx context.Context, cluster
 	})
 }
 
-func (o *clusterCreateOptions) createManifestWork(ctx context.Context, clusterName, workName string) error {
-	work := getManifestWork(workName)
-	_, err := o.hubWorkClient.WorkV1().ManifestWorks(clusterName).Create(ctx, work, metav1.CreateOptions{})
+func (o *clusterCreateOptions) createWorks(ctx context.Context, clusterName string) error {
+	utils.PrintMsg(fmt.Sprintf("creating %d works in the cluster %q ...", o.WorkCount, clusterName))
+	works, err := utils.GenerateManifestWorks(o.WorkCount, clusterName, o.WorkTemplateDir)
+	if err != nil {
+		return err
+	}
+	for _, work := range works {
+		if err := o.createManifestWork(ctx, work); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (o *clusterCreateOptions) createManifestWork(ctx context.Context, work *workv1.ManifestWork) error {
+	_, err := o.hubWorkClient.WorkV1().ManifestWorks(work.Namespace).Create(ctx, work, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
 
 	return wait.Poll(1*time.Second, 30*time.Second, func() (bool, error) {
-		work, err := o.hubWorkClient.WorkV1().ManifestWorks(clusterName).Get(ctx, workName, metav1.GetOptions{})
+		work, err := o.hubWorkClient.WorkV1().ManifestWorks(work.Namespace).Get(ctx, work.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false, nil
 		}
@@ -371,36 +381,4 @@ func isCSRInTerminalState(status *certificatesv1.CertificateSigningRequestStatus
 		}
 	}
 	return false
-}
-
-func getManifestWork(workName string) *workv1.ManifestWork {
-	cm := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      fmt.Sprintf("cm-%s", workName),
-		},
-		Data: map[string]string{
-			"test": "I'm a test configmap",
-		},
-	}
-
-	manifest := workv1.Manifest{}
-	manifest.Object = cm
-
-	return &workv1.ManifestWork{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: workName,
-		},
-		Spec: workv1.ManifestWorkSpec{
-			Workload: workv1.ManifestsTemplate{
-				Manifests: []workv1.Manifest{
-					manifest,
-				},
-			},
-		},
-	}
 }
