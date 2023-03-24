@@ -1,0 +1,40 @@
+# Default values for multicluster-controlplane.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image: quay.io/open-cluster-management/multicluster-controlplane:latest
+imagePullPolicy: IfNotPresent
+
+replicas: 1
+
+# TODO: should add restriction while enable selfmanagement
+enableSelfManagement: false
+
+apiserver:
+  externalHostname: ""
+  caFile: ""
+  caKeyFile: ""
+etcd:
+  mode: "embed"
+  servers: []
+  caFile: ""
+  certFile: ""
+  keyFile: ""
+
+pvc:
+  storageCapacity: 1Gi
+  storageClassName: ""
+  selector: {}
+
+route:
+  enabled: true
+  # for route, we may have more config to support in the future
+
+loadbalancer:
+  enabled: false
+  # TODO: is it any different with externalHostname?
+  baseDomain: ""  #e,g, *.aws.xxx
+
+nodeport:
+  enabled: false
+  port: 30443

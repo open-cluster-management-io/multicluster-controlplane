@@ -1,0 +1,17 @@
+{{- if eq .Values.route.enabled true }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: multicluster-controlplane
+  namespace: {{ .Release.Namespace }}
+  labels:
+    component: multicluster-controlplane
+spec:
+  tls:
+    termination: passthrough
+  to:
+    kind: Service
+    name: multicluster-controlplane
+    weight: 100
+  wildcardPolicy: None
+{{- end }}

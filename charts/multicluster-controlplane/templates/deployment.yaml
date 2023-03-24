@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multicluster-controlplane
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: multicluster-controlplane
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: multicluster-controlplane
+  template:
+    metadata:
+      labels:
+        app: multicluster-controlplane
+    spec:
+      serviceAccountName: multicluster-controlplane-sa
+      containers:
+      - name: controlplane
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        args:
+        - "/multicluster-controlplane"
+        - "server"
+        - "--controlplane-config-dir=/controlplane_config"
+        - "--feature-gates=DefaultClusterSet=true,OpenAPIV3=false"
+        {{- if eq .Values.enableSelfManagement true }}
+        - "--self-management"
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          runAsNonRoot: true
+        volumeMounts: 
+        - name: controlplane-config
+          mountPath: /controlplane_config
+        - name: ocm-data
+          mountPath: /.ocm
+      volumes: 
+      - name: controlplane-config
+        secret:
+          secretName: controlplane-config
+      - name: ocm-data
+        persistentVolumeClaim:
+          claimName: multicluster-controlplane-pvc-volume
