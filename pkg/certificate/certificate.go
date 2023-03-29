@@ -239,15 +239,14 @@ func InitKubeconfig(
 		return err
 	}
 
-	url := fmt.Sprintf("https://%s:%d/", cfg.Apiserver.ExternalHostname, cfg.Apiserver.Port)
 	certDir := CertsDirectory(cfg.DataDirectory)
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		klog.Info("The current runtime environment is outside the cluster, save to control plane kubeconfig to %q", certDir)
+		klog.Infof("The current runtime environment is outside the cluster, save to control plane kubeconfig to %q", certDir)
 		return util.KubeconfigWriteToFile(
 			KubeConfigFile(certDir),
-			url,
+			fmt.Sprintf("https://%s:%d/", cfg.Apiserver.ExternalHostname, cfg.Apiserver.Port),
 			inClusterTrustBundlePEM,
 			kubeconfigCertPEM,
 			kubeconfigKeyPEM,
@@ -257,7 +256,7 @@ func InitKubeconfig(
 	// save inner kubeconfig to the data directory
 	if err := util.KubeconfigWriteToFile(
 		KubeConfigFile(certDir),
-		fmt.Sprintf("https://127.0.0.1:%d/", 9443),
+		fmt.Sprintf("https://127.0.0.1:%d/", configs.DefaultAPIServerPort),
 		inClusterTrustBundlePEM,
 		kubeconfigCertPEM,
 		kubeconfigKeyPEM,
@@ -267,10 +266,13 @@ func InitKubeconfig(
 
 	// expose the controlplane kubeconfig in a secret
 	// for OCP or EKS, port shoule be set to 443 because route/loadbalancer maped 9443 on local to 443 on external host
-	// for kind cluster, port should be in range of 30000-32767
+	externalHost := fmt.Sprintf("https://%s:%d/", cfg.Apiserver.ExternalHostname, cfg.Apiserver.Port)
+	if cfg.Apiserver.Port == 0 {
+		externalHost = fmt.Sprintf("https://%s/", cfg.Apiserver.ExternalHostname)
+	}
 	return util.KubeconfigWroteToSecret(
 		config,
-		url,
+		externalHost,
 		inClusterTrustBundlePEM,
 		kubeconfigCertPEM,
 		kubeconfigKeyPEM)

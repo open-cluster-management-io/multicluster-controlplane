@@ -11,9 +11,10 @@ import (
 	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
+const DefaultAPIServerPort = 9443
+
 const (
 	defaultControlPlaneDataDir = "/.ocm"
-	defaultAPIServerPort       = 9443
 	defaultETCDMode            = "embed"
 	defaultETCDPrefix          = "/registry"
 )
@@ -49,17 +50,14 @@ func LoadConfig(configDir string) (*ControlplaneRunConfig, error) {
 	//TODO if c is nil, read configs from others
 
 	if c.Apiserver.ExternalHostname == "" {
-		hostname, err := util.GetExternalIP()
+		klog.Warningf("The external host name unspecified, trying to find it from runtime environment ...")
+		hostname, err := util.GetExternalHost()
 		if err != nil {
-			return nil, fmt.Errorf("external host name is not found: %s", err)
-		} else if hostname == "" {
-			return nil, fmt.Errorf("external host name is empty")
+			return nil, fmt.Errorf("failed to find external host name from runtime environment, %v", err)
 		}
 		c.Apiserver.ExternalHostname = hostname
-		klog.Infof("using auto discovered external hostname: %+v\n", hostname)
 	}
 
-	klog.Infof("controlplane config: %+v\n", c)
 	return c, nil
 }
 
@@ -88,10 +86,6 @@ func loadConfigFromFile(configDir string) (*ControlplaneRunConfig, error) {
 
 	if c.DataDirectory == "" {
 		c.DataDirectory = defaultControlPlaneDataDir
-	}
-
-	if c.Apiserver.Port == 0 {
-		c.Apiserver.Port = defaultAPIServerPort
 	}
 
 	if c.Etcd.Mode == "" {

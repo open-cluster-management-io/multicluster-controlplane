@@ -424,17 +424,16 @@ func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
 }
 
 func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConfig) error {
-	if cfg.Etcd.Mode == "embed" {
-		o.Etcd.StorageConfig.Transport.ServerList = []string{"http://localhost:2379"}
-		o.ExtraOptions.EmbeddedEtcd.Enabled = true
-		o.ExtraOptions.EmbeddedEtcd.Directory = cfg.DataDirectory
-	} else { // "external"
-		o.Etcd.StorageConfig.Transport.ServerList = cfg.Etcd.Servers
-		o.Etcd.StorageConfig.Transport.TrustedCAFile = cfg.Etcd.CAFile
-		o.Etcd.StorageConfig.Transport.CertFile = cfg.Etcd.CertFile
-		o.Etcd.StorageConfig.Transport.KeyFile = cfg.Etcd.KeyFile
-		o.Etcd.StorageConfig.Prefix = cfg.Etcd.Prefix
+	bindPort := configs.DefaultAPIServerPort
+	if _, err := rest.InClusterConfig(); err != nil {
+		if cfg.Apiserver.Port == 0 {
+			cfg.Apiserver.Port = configs.DefaultAPIServerPort
+			klog.Infof("API server port unspecified, Default port %d is used.", configs.DefaultAPIServerPort)
+		}
+		bindPort = cfg.Apiserver.Port
 	}
+
+	klog.Infof("Current controlplane config: %+v\n", cfg)
 
 	// sign certs
 	certChains, err := certificate.InitCerts(cfg)
@@ -451,12 +450,19 @@ func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConf
 	sakFile := certificate.ServiceAccountKeyFile(certsDir)
 
 	// apply default configs to options
-	_, err = rest.InClusterConfig()
-	if err != nil {
-		o.SecureServing.BindPort = cfg.Apiserver.Port
-	} else {
-		o.SecureServing.BindPort = 9443
+	if cfg.Etcd.Mode == "embed" {
+		o.Etcd.StorageConfig.Transport.ServerList = []string{"http://localhost:2379"}
+		o.ExtraOptions.EmbeddedEtcd.Enabled = true
+		o.ExtraOptions.EmbeddedEtcd.Directory = cfg.DataDirectory
+	} else { // "external"
+		o.Etcd.StorageConfig.Transport.ServerList = cfg.Etcd.Servers
+		o.Etcd.StorageConfig.Transport.TrustedCAFile = cfg.Etcd.CAFile
+		o.Etcd.StorageConfig.Transport.CertFile = cfg.Etcd.CertFile
+		o.Etcd.StorageConfig.Transport.KeyFile = cfg.Etcd.KeyFile
+		o.Etcd.StorageConfig.Prefix = cfg.Etcd.Prefix
 	}
+
+	o.SecureServing.BindPort = bindPort
 	o.Authentication.ClientCert.ClientCA = certificate.ClientCACertFile(certsDir)
 	o.ExtraOptions.ClientKeyFile = certificate.ClientCAKeyFile(certsDir)
 	o.Authentication.ServiceAccounts.KeyFiles = []string{sakFile}
