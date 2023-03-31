@@ -84,7 +84,7 @@ function start_apiserver {
     kube::util::wait_for_url "https://127.0.0.1:${apiserver_port}/healthz" "apiserver: " 1 "${WAIT_FOR_URL_API_SERVER}" "${MAX_TIME_FOR_URL_API_SERVER}" \
     || { echo "check apiserver logs: ${APISERVER_LOG}" ; exit 1 ; }
     
-    echo "use 'kubectl --kubeconfig=${data_dir}/cert/kube-aggregator.kubeconfig' to use the aggregated API server"
+    echo "use 'kubectl --kubeconfig=${data_dir}/cert/kube-aggregator.kubeconfig' to access the controlplane"
     echo "$APISERVER_PID" > "${REPO_DIR}/_output/controlplane/controlpane_pid"
     chmod a+r ${data_dir}/cert/kube-aggregator.kubeconfig
 }

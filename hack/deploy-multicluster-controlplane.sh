@@ -181,9 +181,6 @@ if [ ! -f "$configfile" ] ; then
     echo "config file $configfile is not found, use defaul configurations"
     cat > ${REPO_DIR}/hack/deploy/controlplane/ocmconfig.yaml <<EOF
 dataDirectory: /.ocm
-apiserver:
-  externalHostname: 
-  port: 9443
 etcd:
   mode: embed
   prefix: $HUB_NAME
@@ -193,17 +190,15 @@ fi
 create_variables $configfile
 
 if [[ -z "${apiserver_externalHostname:+x}" ]]; then
-    echo "externalHostname is not set, using default..."
-    # exit 1
+    echo "externalHostname is not set, will be auto detected ..."
 fi
 
 if [[ -z "${apiserver_port:+x}" ]];then
-    echo "port should be set to the external bind port"
-    exit 1
+    echo "port is not set, will be auto detected ..."
 fi
 
 if [[ -z "${apiserver_caFile:+x}" || -z "${apiserver_caKeyFile:+x}" ]]; then
-    echo "caFile, caKeyFile not set, using self-generated root-ca..."
+    echo "caFile, caKeyFile not set, will be auto generated ..."
     apiserver_caFile=""
     apiserver_caKeyFile=""
 fi

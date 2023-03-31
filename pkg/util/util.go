@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 
@@ -17,12 +16,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+	netutils "k8s.io/utils/net"
 )
 
 const (
@@ -30,10 +31,6 @@ const (
 	secretName                = "multicluster-controlplane-kubeconfig"
 	defaultServiceName        = "multicluster-controlplane"
 	defaultRouteName          = "multicluster-controlplane"
-	serviceClusterIP          = "ClusterIP"
-	serviceNodePort           = "NodePort"
-	serviceLoadBalancer       = "LoadBalancer"
-	serviceExternalName       = "ExternalName"
 )
 
 // KubeConfigWithClientCerts creates a kubeconfig authenticating with client cert/key
@@ -56,34 +53,21 @@ func KubeconfigWriteToFile(filename string, clusterURL string, clusterTrustBundl
 	return nil
 }
 
-// GetExternalIP get the generated external IP from service
-func GetExternalIP() (string, error) {
-	// deploy mode, find external ip
+// GetExternalHost get the generated external IP from service
+func GetExternalHost() (string, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		klog.Infoln("trying to get external hostanme from local IP address")
-		// not running in a cluster, try to find local ip
-		addrs, err := net.InterfaceAddrs()
-		if err != nil {
-			return "", err
-		}
-		for _, addr := range addrs {
-			ipAddr, ok := addr.(*net.IPNet)
-			if !ok {
-				continue
-			}
-			if ipAddr.IP.IsLoopback() {
-				continue
-			}
-			if !ipAddr.IP.IsGlobalUnicast() {
-				continue
-			}
-			return ipAddr.IP.String(), nil
-		}
-		return "", err
+		klog.Infof("Trying to get current bind address from local node")
+		ip, err := utilnet.ResolveBindAddress(netutils.ParseIPSloppy("0.0.0.0"))
+		return ip.String(), err
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return "", err
+	}
+
+	ocpRouteClient, err := routev1Client.NewForConfig(config)
 	if err != nil {
 		return "", err
 	}
@@ -94,74 +78,62 @@ func GetExternalIP() (string, error) {
 		return "", err
 	}
 
-	var host string
 	switch svc.Spec.Type {
-	case serviceClusterIP:
-		// TODO(ycyaoxdu): need to handle other cases
-		klog.Infoln("trying to get external hostanme from route")
-		// for ocp
-		routeClient, err := routev1Client.NewForConfig(config)
-		if err != nil {
-			return "", err
-		}
-		errGet := retry.OnError(retry.DefaultRetry, func(err error) bool {
-			return true
-		}, func() error {
-			route, err := routeClient.RouteV1().Routes(ns).Get(context.TODO(), defaultRouteName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			host = route.Status.Ingress[0].Host
-			return nil
-		})
-		if errGet != nil {
-			return "", errGet
-		}
-		return host, nil
+	case corev1.ServiceTypeClusterIP:
+		// TODO(ycyaoxdu): only hanlde the ocp env, need to handle other cases
+		klog.Infof("Trying to get external host name from ocp route")
+		var host string
+		err := retry.OnError(
+			retry.DefaultRetry,
+			func(err error) bool { return true },
+			func() error {
+				route, err := ocpRouteClient.RouteV1().Routes(ns).Get(context.TODO(), defaultRouteName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				if len(route.Status.Ingress) == 0 {
+					return fmt.Errorf("ingress not found, retrying")
+				}
 
-	case serviceNodePort:
-		klog.Infoln("trying to get external hostanme from node port")
-		// for kind cluster
-		nodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return "", err
-		}
-		// There is only one node in kind cluster
-		for _, addr := range nodes.Items[0].Status.Addresses {
-			if addr.Type == "InternalIP" {
-				return addr.Address, nil
-			}
-		}
+				host = route.Status.Ingress[0].Host
+				if len(host) == 0 {
+					return fmt.Errorf("failed to find the host from the route %s/%s ingress, retrying", ns, defaultRouteName)
+				}
 
-	case serviceLoadBalancer:
-		klog.Infoln("trying to get external hostanme from load balancer")
-		// for eks
-		errGet := retry.OnError(retry.DefaultRetry, func(err error) bool {
-			return true
-		}, func() error {
-			s, err := clientset.CoreV1().Services(ns).Get(context.TODO(), defaultServiceName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
+				return nil
+			},
+		)
 
-			if len(s.Status.LoadBalancer.Ingress) == 0 {
-				return fmt.Errorf("ingress not found, retrying")
-			}
-			host = s.Status.LoadBalancer.Ingress[0].Hostname
-			return nil
-		})
-		if errGet != nil {
-			return "", errGet
-		}
-		return host, nil
+		return host, err
+	case corev1.ServiceTypeLoadBalancer:
+		// TODO only hanlde the eks env, need to handle other cases
+		klog.Infof("Trying to get external host name from load balancer servcie")
+		var host string
+		err := retry.OnError(
+			retry.DefaultRetry,
+			func(err error) bool { return true },
+			func() error {
+				s, err := clientset.CoreV1().Services(ns).Get(context.TODO(), defaultServiceName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
 
-	case serviceExternalName:
-		fallthrough
-	default:
-		klog.Infoln("no available external hostanme founded")
-		return "", nil
+				if len(s.Status.LoadBalancer.Ingress) == 0 {
+					return fmt.Errorf("ingress not found, retrying")
+				}
+
+				host = s.Status.LoadBalancer.Ingress[0].Hostname
+				if len(host) == 0 {
+					return fmt.Errorf("failed to find the host from the service %s/%s ingress, retrying", ns, defaultServiceName)
+				}
+				return nil
+			},
+		)
+
+		return host, err
 	}
-	return "", nil
+
+	return "", fmt.Errorf("the type of current service %s/%s is not suppored", ns, defaultServiceName)
 }
 
 // KubeConfigWithClientCerts creates a kubeconfig authenticating with client cert/key

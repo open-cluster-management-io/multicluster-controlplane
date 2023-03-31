@@ -18,7 +18,15 @@ echo "Create a cluster with kind ..."
 cluster="e2e-test"
 external_host_port="30443"
 kubeconfig="${cluster_dir}/${cluster}.kubeconfig"
-kind create cluster --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig --name ${cluster} 
+cat << EOF | kind create cluster --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig --name ${cluster} --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: ${external_host_port}
+    hostPort: 443
+EOF
 
 echo "Load $IMAGE_NAME to the cluster $cluster ..."
 kind load docker-image $IMAGE_NAME --name $cluster
@@ -60,8 +68,7 @@ sed -i "$(sed -n  '/  - ocmconfig.yaml/=' $deploy_dir/kustomization.yaml) a \  -
 cat > ${deploy_dir}/ocmconfig.yaml <<EOF
 dataDirectory: /.ocm
 apiserver:
-  externalHostname: 
-  port: $external_host_port
+  externalHostname: 127.0.0.1
 etcd:
   mode: external
   prefix: $namespace
