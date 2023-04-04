@@ -45,30 +45,40 @@ import (
 
 var ResyncInterval = 5 * time.Minute
 
-func InstallControllers(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
-	klog.Info("bootstrapping ocm controllers")
-	go func() {
-		restConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
-		restConfig.ContentType = "application/json"
-		dynamicClient, err := dynamic.NewForConfig(restConfig)
-		if err != nil {
-			klog.Fatalf("failed to create dynamic client: %v", err)
-		}
-		ctx := GoContext(stopCh)
-		if ocmcrds.WaitForOcmCrdReady(ctx, dynamicClient) {
-			klog.Infof("ocm crd is ready!")
-		}
-		if err := runControllers(ctx, restConfig, aggregatorConfig.GenericConfig.SharedInformerFactory); err != nil {
-			klog.Errorf("failed to bootstrap ocm controllers: %v", err)
-		} else {
+func InstallControllers(clusterAutoApprovalUsers []string) func(<-chan struct{}, *aggregatorapiserver.Config) error {
+	return func(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
+		klog.Info("bootstrapping ocm controllers")
+
+		go func() {
+			restConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
+			restConfig.ContentType = "application/json"
+
+			dynamicClient, err := dynamic.NewForConfig(restConfig)
+			if err != nil {
+				klog.Fatalf("failed to create dynamic client: %v", err)
+			}
+
+			ctx := GoContext(stopCh)
+
+			if ocmcrds.WaitForOcmCrdReady(ctx, dynamicClient) {
+				klog.Infof("ocm crd is ready!")
+			}
+
+			if err := runControllers(ctx, restConfig, aggregatorConfig.GenericConfig.SharedInformerFactory, clusterAutoApprovalUsers); err != nil {
+				klog.Fatalf("failed to bootstrap ocm controllers: %v", err)
+			}
+
 			klog.Infof("stopping ocm controllers")
-		}
-	}()
-	return nil
+		}()
+
+		return nil
+	}
 }
 
-func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers genericinformers.SharedInformerFactory,
-) error {
+func runControllers(ctx context.Context,
+	restConfig *rest.Config,
+	kubeInformers genericinformers.SharedInformerFactory,
+	clusterAutoApprovalUsers []string) error {
 	eventRecorder := events.NewInMemoryRecorder("registration-controller")
 
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
@@ -114,6 +124,17 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 		controllerContext.EventRecorder,
 	)
 
+	csrReconciles := []csr.Reconciler{csr.NewCSRRenewalReconciler(kubeClient, controllerContext.EventRecorder)}
+	if features.DefaultHubMutableFeatureGate.Enabled(ocmfeature.ManagedClusterAutoApproval) {
+		csrReconciles = append(csrReconciles, csr.NewCSRBootstrapReconciler(
+			kubeClient,
+			clusterClient,
+			clusterInformers.Cluster().V1().ManagedClusters().Lister(),
+			clusterAutoApprovalUsers,
+			controllerContext.EventRecorder,
+		))
+	}
+
 	var csrController factory.Controller
 	if features.DefaultHubMutableFeatureGate.Enabled(ocmfeature.V1beta1CSRAPICompatibility) {
 		v1CSRSupported, v1beta1CSRSupported, err := helpers.IsCSRSupported(kubeClient)
@@ -123,8 +144,8 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 
 		if !v1CSRSupported && v1beta1CSRSupported {
 			csrController = csr.NewV1beta1CSRApprovingController(
-				kubeClient,
 				kubeInformers.Certificates().V1beta1().CertificateSigningRequests(),
+				csrReconciles,
 				controllerContext.EventRecorder,
 			)
 			klog.Info("Using v1beta1 CSR api to manage spoke client certificate")
@@ -132,8 +153,8 @@ func runControllers(ctx context.Context, restConfig *rest.Config, kubeInformers 
 	}
 	if csrController == nil {
 		csrController = csr.NewCSRApprovingController(
-			kubeClient,
 			kubeInformers.Certificates().V1().CertificateSigningRequests(),
+			csrReconciles,
 			controllerContext.EventRecorder,
 		)
 	}
