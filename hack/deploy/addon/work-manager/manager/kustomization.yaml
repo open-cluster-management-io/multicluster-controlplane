@@ -5,9 +5,3 @@ resources:
 - controller.yaml
 - role.yaml
 - rolebinding.yaml
-
-
-images:
-- name: quay.io/stolostron/multicloud-manager
-  newName: quay.io/zhiweiyin/multicloud-manager
-  newTag: latest

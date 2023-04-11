@@ -5,8 +5,3 @@ resources:
 - manager-deployment.yaml
 - role.yaml
 - rolebinding.yaml
-
-images:
-- name: quay.io/open-cluster-management/managed-serviceaccount:latest
-  newName: quay.io/zhiweiyin/managed-serviceaccount
-  newTag: latest

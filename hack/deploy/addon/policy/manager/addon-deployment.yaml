@@ -105,4 +105,4 @@ spec:
         - name: kubeconfig
           secret:
             defaultMode: 420
-            secretName: controlplane-kubeconfig
+            secretName: multicluster-controlplane-kubeconfig
