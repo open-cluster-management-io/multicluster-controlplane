@@ -48,7 +48,7 @@ var _ = ginkgo.Describe("Loopback registration and work management", func() {
 		})
 
 		ginkgo.It("should be able to create a manifestwork in local-cluster", func() {
-			workName := fmt.Sprintf("local-clsuter-%s", rand.String(6))
+			workName := fmt.Sprintf("local-cluster-%s", rand.String(6))
 			configMapName := fmt.Sprintf("local-cluster-cm-%s", rand.String(6))
 			createAndDeleteManifestwork(localClusterName, workName, configMapName)
 		})

@@ -11,6 +11,8 @@ IMAGE_REGISTRY?=quay.io/open-cluster-management
 IMAGE_TAG?=latest
 export IMAGE_NAME?=$(IMAGE_REGISTRY)/multicluster-controlplane:$(IMAGE_TAG)
 
+CONTROLPLANE_KUBECONFIG?=hack/deploy/cert-$(HUB_NAME)/kubeconfig
+
 check-copyright: 
 	@hack/check/check-copyright.sh
 
@@ -80,21 +82,21 @@ destroy:
 	rm -r hack/deploy/cert-$(HUB_NAME)
 
 deploy-work-manager-addon:
-	$(KUBECTL) apply -k hack/deploy/addon/work-manager/hub --kubeconfig=hack/deploy/cert-$(HUB_NAME)/kubeconfig
+	$(KUBECTL) apply -k hack/deploy/addon/work-manager/hub --kubeconfig=$(CONTROLPLANE_KUBECONFIG)
 	cp hack/deploy/addon/work-manager/manager/kustomization.yaml hack/deploy/addon/work-manager/manager/kustomization.yaml.tmp
 	cd hack/deploy/addon/work-manager/manager && $(KUSTOMIZE) edit set namespace $(HUB_NAME)
 	$(KUSTOMIZE) build hack/deploy/addon/work-manager/manager | $(KUBECTL) apply -f -
 	mv hack/deploy/addon/work-manager/manager/kustomization.yaml.tmp hack/deploy/addon/work-manager/manager/kustomization.yaml
 
 deploy-managed-serviceaccount-addon:
-	$(KUBECTL) apply -k hack/deploy/addon/managed-serviceaccount/hub --kubeconfig=hack/deploy/cert-$(HUB_NAME)/kubeconfig
+	$(KUBECTL) apply -k hack/deploy/addon/managed-serviceaccount/hub --kubeconfig=$(CONTROLPLANE_KUBECONFIG)
 	cp hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml.tmp
 	cd hack/deploy/addon/managed-serviceaccount/manager && $(KUSTOMIZE) edit set namespace $(HUB_NAME)
 	$(KUSTOMIZE) build hack/deploy/addon/managed-serviceaccount/manager | $(KUBECTL) apply -f -
 	mv hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml.tmp hack/deploy/addon/managed-serviceaccount/manager/kustomization.yaml
 
 deploy-policy-addon:
-	$(KUBECTL) apply -k hack/deploy/addon/policy/hub --kubeconfig=hack/deploy/cert-$(HUB_NAME)/kubeconfig
+	$(KUBECTL) apply -k hack/deploy/addon/policy/hub --kubeconfig=$(CONTROLPLANE_KUBECONFIG)
 	cp hack/deploy/addon/policy/manager/kustomization.yaml hack/deploy/addon/policy/manager/kustomization.yaml.tmp
 	cd hack/deploy/addon/policy/manager && $(KUSTOMIZE) edit set namespace $(HUB_NAME)
 	$(KUSTOMIZE) build hack/deploy/addon/policy/manager | $(KUBECTL) apply -f -
