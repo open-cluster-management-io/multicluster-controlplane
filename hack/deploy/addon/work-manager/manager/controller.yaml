@@ -22,6 +22,7 @@ spec:
           - "/controller"
           - "--enable-agent-deploy=true"
           - "--kubeconfig=/var/run/secrets/hub/kubeconfig"
+          - "--agent-addon-image=quay.io/stolostron/multicloud-manager:2.7.0-SNAPSHOT-2022-11-30-23-34-51"
         livenessProbe:
           httpGet:
             path: /healthz

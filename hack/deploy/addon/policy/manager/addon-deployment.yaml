@@ -70,11 +70,11 @@ spec:
                   apiVersion: v1
                   fieldPath: metadata.name
             - name: CONFIG_POLICY_CONTROLLER_IMAGE
-              value: quay.io/open-cluster-management/config-policy-controller:latest
+              value: quay.io/stolostron/config-policy-controller:2.7.0-SNAPSHOT-2022-11-30-23-34-51
             - name: KUBE_RBAC_PROXY_IMAGE
               value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.10
             - name: GOVERNANCE_POLICY_FRAMEWORK_ADDON_IMAGE
-              value: quay.io/open-cluster-management/governance-policy-framework-addon:latest
+              value: quay.io/stolostron/governance-policy-framework-addon:2.7.0-SNAPSHOT-2022-11-30-23-34-51
           image: quay.io/open-cluster-management/governance-policy-addon-controller:latest
           imagePullPolicy: Always
           name: manager
