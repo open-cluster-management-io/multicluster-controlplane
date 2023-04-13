@@ -12,14 +12,14 @@ enableSelfManagement: false
 
 apiserver:
   externalHostname: ""
-  caFile: ""
-  caKeyFile: ""
+  ca: ""
+  cakey: ""
 etcd:
   mode: "embed"
   servers: []
-  caFile: ""
-  certFile: ""
-  keyFile: ""
+  ca: ""
+  cert: "" 
+  certkey: "" 
 
 pvc:
   storageCapacity: 1Gi

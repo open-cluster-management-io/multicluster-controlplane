@@ -5,6 +5,7 @@ KUBECTL=${KUBECTL:-"kubectl"}
 KUSTOMIZE=${KUSTOMIZE:-"kustomize"}
 CFSSL=${CFSSL:-"cfssl"}
 CFSSLJSON=${CFSSLJSON:-"cfssljson"}
+CFSSL_DIR=${CFSSL_DIR:-"${KUBE_ROOT}/multicluster_ca"}
 
 if ! command -v $KUBECTL >/dev/null 2>&1; then
   echo "Command $KUBECTL is not found"
@@ -39,7 +40,6 @@ if [[ "${REUSE_CA}" != true ]]; then
         CFSSLJSON="$(go env GOPATH)/bin/cfssljson"
     fi
 
-    CFSSL_DIR=${KUBE_ROOT}/multicluster_ca
     mkdir -p ${CFSSL_DIR}
     cd ${CFSSL_DIR}
 
