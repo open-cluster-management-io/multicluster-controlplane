@@ -11,7 +11,7 @@ resources:
 
 images:
 - name: quay.io/open-cluster-management/governance-policy-addon-controller:latest
-  newName: quay.io/zhiweiyin/governance-policy-addon-controller
+  newName: quay.io/clyang82/governance-policy-addon-controller
   newTag: latest
 - name: quay.io/open-cluster-management/governance-policy-propagator:latest
   newName: quay.io/morvencao/governance-policy-propagator

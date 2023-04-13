@@ -8,5 +8,5 @@ resources:
 
 images:
 - name: quay.io/open-cluster-management/managed-serviceaccount:latest
-  newName: quay.io/zhiweiyin/managed-serviceaccount
+  newName: quay.io/clyang82/managed-serviceaccount
   newTag: latest

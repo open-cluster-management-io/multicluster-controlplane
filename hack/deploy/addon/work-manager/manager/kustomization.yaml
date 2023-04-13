@@ -9,5 +9,5 @@ resources:
 
 images:
 - name: quay.io/stolostron/multicloud-manager
-  newName: quay.io/zhiweiyin/multicloud-manager
+  newName: quay.io/clyang82/multicloud-manager
   newTag: latest
