@@ -3,6 +3,8 @@
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 
 workdir=$REPO_DIR/_output/performance
+output_suffix=${PERF_TEST_OUTPUT_SUFFIX:-"$(date '+%Y%m%dT%H%M%S')"}
+
 mkdir -p $workdir
 
 if [ -z "$KUBECONFIG" ]; then
@@ -34,8 +36,7 @@ kubectl --kubeconfig ${workdir}/perf.kubeconfig create namespace open-cluster-ma
 rm -rf /tmp/performance-test-agent
 
 perftool=$REPO_DIR/bin/perftool
-resmetricsfile="${workdir}/res-metrics-$(date '+%Y%m%dT%H%M%S').csv"
-logfile="${workdir}/perf-tool-$(date '+%Y%m%dT%H%M%S').log"
+logfile="${workdir}/perf-tool-${output_suffix}.log"
 
 $perftool create \
     --kubeconfig=$KUBECONFIG \
@@ -43,4 +44,5 @@ $perftool create \
     --spoke-kubeconfig=${workdir}/perf.kubeconfig \
     --count=1000 \
     --work-count=5 \
-    --res-metrics-file-name=$resmetricsfile 2>$logfile
+    --output-file-suffix=$output_suffix \
+    --output-dir=$workdir 2>$logfile

@@ -4,7 +4,6 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,7 +89,7 @@ func (g *MetricsRecorder) Record(ctx context.Context, filename string, clusterCo
 			memory = memory / 1024 / 1024
 			utils.PrintMsg(fmt.Sprintf("container=%s, counts=%d, cpu=%s, memory=%dMi",
 				c.Name, clusterCounts, cpu, memory))
-			if err := dumpToFile(filename, fmt.Sprintf("%d,%s,%d",
+			if err := utils.AppendRecordToFile(filename, fmt.Sprintf("%d,%s,%d",
 				clusterCounts, strings.ReplaceAll(cpu.String(), "m", ""), memory)); err != nil {
 				return fmt.Errorf("failed to dump metrics to file, %v", err)
 			}
@@ -114,21 +113,4 @@ func metricsAPIAvailable(discoveredAPIGroups *metav1.APIGroupList) bool {
 		}
 	}
 	return false
-}
-
-func dumpToFile(filename, record string) error {
-	if filename == "" {
-		return nil
-	}
-
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if _, err := f.WriteString(fmt.Sprintf("%s\n", record)); err != nil {
-		return err
-	}
-	return nil
 }
