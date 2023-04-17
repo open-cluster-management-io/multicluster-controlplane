@@ -209,7 +209,7 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 
 	klog.Infof("Waiting for hub kubeconfig...")
 	kubeconfigPath := path.Join(o.RegistrationAgent.HubKubeconfigDir, clientcert.KubeconfigFile)
-	if err := o.waitForValidHubKubeConfig(ctx, kubeconfigPath); err != nil {
+	if err := o.WaitForValidHubKubeConfig(ctx, kubeconfigPath); err != nil {
 		klog.Fatalf("failed to wait hub kubeconfig, %v", err)
 	}
 
@@ -257,7 +257,7 @@ func (o *AgentOptions) ensureCRDs(ctx context.Context, client apiextensionsclien
 	return nil
 }
 
-func (o *AgentOptions) waitForValidHubKubeConfig(ctx context.Context, kubeconfigPath string) error {
+func (o *AgentOptions) WaitForValidHubKubeConfig(ctx context.Context, kubeconfigPath string) error {
 	return wait.PollImmediateInfinite(
 		5*time.Second,
 		func() (bool, error) {

@@ -28,7 +28,6 @@ import (
 
 const (
 	defaultComponentNamespace = "multicluster-controlplane"
-	secretName                = "multicluster-controlplane-kubeconfig"
 	defaultServiceName        = "multicluster-controlplane"
 	defaultRouteName          = "multicluster-controlplane"
 )
@@ -138,7 +137,7 @@ func GetExternalHost() (string, error) {
 
 // KubeConfigWithClientCerts creates a kubeconfig authenticating with client cert/key
 // and write it to secret "kubeconfig"
-func KubeconfigWroteToSecret(config *rest.Config, clusterURL string, clusterTrustBundle, clientCertPEM, clientKeyPEM []byte) error {
+func KubeconfigWroteToSecret(config *rest.Config, secretName, clusterURL string, clusterTrustBundle, clientCertPEM, clientKeyPEM []byte) error {
 	kubeconfig, err := toKubeconfig(clusterURL, clusterTrustBundle, clientCertPEM, clientKeyPEM)
 	if err != nil {
 		return err
