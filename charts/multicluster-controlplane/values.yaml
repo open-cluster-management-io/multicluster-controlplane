@@ -7,6 +7,10 @@ imagePullPolicy: IfNotPresent
 
 replicas: 1
 
+features: "DefaultClusterSet=true,ManagedClusterAutoApproval=true"
+
+autoApprovalBootstrapUsers: ""
+
 # TODO: should add restriction while enable selfmanagement
 enableSelfManagement: false
 

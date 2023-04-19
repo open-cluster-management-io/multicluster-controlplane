@@ -18,7 +18,6 @@ require (
 	k8s.io/client-go v0.26.3
 	k8s.io/cluster-bootstrap v0.25.4
 	k8s.io/component-base v0.26.3
-	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kube-aggregator v0.26.1
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
@@ -27,7 +26,7 @@ require (
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
 	open-cluster-management.io/api v0.10.1-0.20230310025041-ca0770573954
 	open-cluster-management.io/placement v0.10.0
-	open-cluster-management.io/registration v0.10.1-0.20230404071336-ad1bef915353
+	open-cluster-management.io/registration v0.10.1-0.20230419032057-69e686faa191
 	open-cluster-management.io/work v0.10.1-0.20230314090112-ee923cd5f632
 	sigs.k8s.io/controller-runtime v0.14.5
 )

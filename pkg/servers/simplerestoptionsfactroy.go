@@ -14,7 +14,7 @@ import (
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/value"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type SimpleRestOptionsFactory struct {
