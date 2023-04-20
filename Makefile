@@ -133,6 +133,9 @@ build-performance-test:
 	go build -o bin/perftool test/performance/perftool.go
 .PHONY: build-performance-test
 
+export PERF_TEST_OUTPUT_SUFFIX ?= $(shell date '+%Y%m%dT%H%M%S')
+
 test-performance: build-performance-test
-	./test/performance/hack/performance.sh
+	mkdir -p _output/performance
+	./test/performance/hack/performance.sh >_output/performance/perf.$(PERF_TEST_OUTPUT_SUFFIX).output 2>&1 &
 .PHONY: test-performance

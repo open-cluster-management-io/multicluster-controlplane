@@ -33,22 +33,32 @@ import (
 )
 
 const (
-	performanceTestLabel = "perftest.open-cluster-management.io"
-	defaultNamespace     = "multicluster-controlplane"
+	performanceTestLabel       = "perftest.open-cluster-management.io"
+	defaultNamespace           = "multicluster-controlplane"
+	workCreationTimeRecordFile = "works-creation-time"
+	resourceMetricsRecordFile  = "resource-metrics"
 )
 
 type clusterCreateOptions struct {
-	ClusterNamePrefix       string
-	Kubeconfig              string
-	HubKubeconfig           string
-	SpokeKubeconfig         string
-	Namespace               string
-	ResourceMetricsFileName string
-	WorkTemplateDir         string
-	Count                   int
-	WorkCount               int
-	Interval                time.Duration
-	Pseudo                  bool
+	Namespace         string
+	ClusterNamePrefix string
+
+	Kubeconfig      string
+	HubKubeconfig   string
+	SpokeKubeconfig string
+
+	OutputDir        string
+	OutputFileSuffix string
+
+	WorkTemplateDir string
+
+	Count     int
+	WorkCount int
+
+	Timeout  time.Duration
+	Interval time.Duration
+
+	Pseudo bool
 
 	hubKubeClient    kubernetes.Interface
 	hubClusterClient clusterclient.Interface
@@ -61,11 +71,12 @@ type clusterCreateOptions struct {
 
 func NewClusterRunOptions() *clusterCreateOptions {
 	return &clusterCreateOptions{
-		Count:             1,
-		Interval:          5 * time.Second,
 		ClusterNamePrefix: "test",
 		Namespace:         defaultNamespace,
+		Count:             1,
 		WorkCount:         5,
+		Interval:          5 * time.Second,
+		Timeout:           30 * time.Second,
 	}
 }
 
@@ -131,11 +142,13 @@ func (o *clusterCreateOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SpokeKubeconfig, "spoke-kubeconfig", o.SpokeKubeconfig, "The kubeconfig of spoke cluster")
 	fs.StringVar(&o.Namespace, "controlplane-namespace", o.Namespace, "The namespace of multicluster controlplane")
 	fs.StringVar(&o.ClusterNamePrefix, "cluster-name-prefix", o.ClusterNamePrefix, "The name prefix of clusters")
-	fs.StringVar(&o.ResourceMetricsFileName, "res-metrics-file-name", o.ResourceMetricsFileName, "The file name of resource metrics")
+	fs.StringVar(&o.OutputDir, "output-dir", o.OutputDir, "The directory of performance test output files")
+	fs.StringVar(&o.OutputFileSuffix, "output-file-suffix", o.OutputDir, "The file suffix of performance test output files")
 	fs.StringVar(&o.WorkTemplateDir, "work-template-dir", o.WorkTemplateDir, "The directory of work template")
 	fs.IntVar(&o.Count, "count", o.Count, "The count of clusters")
 	fs.IntVar(&o.WorkCount, "work-count", o.WorkCount, "The count of works in one cluster")
 	fs.DurationVar(&o.Interval, "interval", o.Interval, "The interval time of creating cluster, only for psedudo clusters")
+	fs.DurationVar(&o.Timeout, "timeout", o.Timeout, "The timeout of wating for cluster and manifestwork availiable")
 	fs.BoolVar(&o.Pseudo, "pseduo", o.Pseudo, "Only create an accepted managed cluster")
 }
 
@@ -151,7 +164,8 @@ func (o *clusterCreateOptions) Run(ctx context.Context) error {
 		return nil
 	}
 
-	if err := o.metricsRecorder.Record(ctx, o.ResourceMetricsFileName, currentClusters); err != nil {
+	metricsFile := path.Join(o.OutputDir, fmt.Sprintf("%s-%s.csv", resourceMetricsRecordFile, o.OutputFileSuffix))
+	if err := o.metricsRecorder.Record(ctx, metricsFile, currentClusters); err != nil {
 		return err
 	}
 
@@ -181,11 +195,11 @@ func (o *clusterCreateOptions) Run(ctx context.Context) error {
 		}
 
 		usedTime := time.Since(startTime)
-		utils.PrintMsg(fmt.Sprintf("Cluster %q is created, time used %ds",
+		utils.PrintMsg(fmt.Sprintf("Cluster %q is ready, time used %ds",
 			clusterName, usedTime/(time.Millisecond*time.Microsecond)))
 
 		if i != 0 && i%10 == 0 {
-			if err := o.metricsRecorder.Record(ctx, o.ResourceMetricsFileName, i); err != nil {
+			if err := o.metricsRecorder.Record(ctx, metricsFile, i); err != nil {
 				return err
 			}
 		}
@@ -193,7 +207,7 @@ func (o *clusterCreateOptions) Run(ctx context.Context) error {
 		time.Sleep(o.Interval)
 	}
 
-	if err := o.metricsRecorder.Record(ctx, o.ResourceMetricsFileName, o.Count); err != nil {
+	if err := o.metricsRecorder.Record(ctx, metricsFile, o.Count); err != nil {
 		return err
 	}
 
@@ -316,7 +330,7 @@ func (o *clusterCreateOptions) approveCSR(ctx context.Context, clusterName strin
 }
 
 func (o *clusterCreateOptions) waitClusterAvailable(ctx context.Context, clusterName string) error {
-	return wait.Poll(1*time.Second, 30*time.Second, func() (bool, error) {
+	return wait.Poll(1*time.Second, o.Timeout, func() (bool, error) {
 		cluster, err := o.hubClusterClient.ClusterV1().ManagedClusters().Get(ctx, clusterName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -332,39 +346,50 @@ func (o *clusterCreateOptions) waitClusterAvailable(ctx context.Context, cluster
 
 func (o *clusterCreateOptions) createWorks(ctx context.Context, clusterName string) error {
 	utils.PrintMsg(fmt.Sprintf("creating %d works in the cluster %q ...", o.WorkCount, clusterName))
+	workRecordFile := path.Join(o.OutputDir, fmt.Sprintf("%s-%s-%s.csv",
+		clusterName, workCreationTimeRecordFile, o.OutputFileSuffix))
 	works, err := utils.GenerateManifestWorks(o.WorkCount, clusterName, o.WorkTemplateDir)
 	if err != nil {
 		return err
 	}
-	for _, work := range works {
-		if err := o.createManifestWork(ctx, work); err != nil {
+	for index, work := range works {
+		startTime := time.Now()
+		_, err := o.hubWorkClient.WorkV1().ManifestWorks(work.Namespace).Create(ctx, work, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+		// milli second
+		creationTime := time.Since(startTime) / (1000 * time.Microsecond)
+
+		waitStartTime := time.Now()
+		if err := wait.Poll(1*time.Second, o.Timeout, func() (bool, error) {
+			work, err := o.hubWorkClient.WorkV1().ManifestWorks(work.Namespace).Get(ctx, work.Name, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			if err != nil {
+				return false, err
+			}
+
+			if meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkAvailable) {
+				return true, nil
+			}
+
+			return false, nil
+		}); err != nil {
+			return err
+		}
+		// milli second
+		waitEndTime := time.Since(waitStartTime) / (1000 * time.Microsecond)
+
+		// second
+		usedTime := time.Since(startTime) / (time.Millisecond * time.Microsecond)
+		if err := utils.AppendRecordToFile(workRecordFile, fmt.Sprintf("%d,%d,%d,%d",
+			index, creationTime, waitEndTime, usedTime)); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func (o *clusterCreateOptions) createManifestWork(ctx context.Context, work *workv1.ManifestWork) error {
-	_, err := o.hubWorkClient.WorkV1().ManifestWorks(work.Namespace).Create(ctx, work, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-
-	return wait.Poll(1*time.Second, 30*time.Second, func() (bool, error) {
-		work, err := o.hubWorkClient.WorkV1().ManifestWorks(work.Namespace).Get(ctx, work.Name, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
-		if err != nil {
-			return false, err
-		}
-
-		if meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkAvailable) {
-			return true, nil
-		}
-
-		return false, nil
-	})
 }
 
 func getClusterName(prefix string, index int) string {

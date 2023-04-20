@@ -38,6 +38,27 @@ func PrintMsg(msg string) {
 	fmt.Fprintf(os.Stdout, "[%s] %s\n", now.Format(time.RFC3339), msg)
 }
 
+func AppendRecordToFile(filename, record string) error {
+	if filename == "" {
+		return nil
+	}
+
+	if record == "" {
+		return nil
+	}
+
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(fmt.Sprintf("%s\n", record)); err != nil {
+		return err
+	}
+	return nil
+}
+
 func GenerateManifestWorks(workCount int, clusterName, templateDir string) ([]*workv1.ManifestWork, error) {
 	if len(templateDir) == 0 {
 		totalWorkloadSize := 0
