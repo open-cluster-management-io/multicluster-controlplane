@@ -1,3 +1,4 @@
+{{- include "validate.exposeService" . }}
 {{- if or (eq .Values.nodeport.enabled true) (or (eq .Values.loadbalancer.enabled true) (eq .Values.route.enabled true)) }}
 apiVersion: v1
 kind: Service
