@@ -253,7 +253,7 @@ func InitKubeconfig(
 		)
 	}
 
-	// save inner kubeconfig to the data directory
+	// save controlplane inner kubeconfig to the data directory
 	if err := util.KubeconfigWriteToFile(
 		KubeConfigFile(certDir),
 		fmt.Sprintf("https://127.0.0.1:%d/", configs.DefaultAPIServerPort),
@@ -264,18 +264,37 @@ func InitKubeconfig(
 		return err
 	}
 
-	// expose the controlplane kubeconfig in a secret
+	// expose controlplane in-cluster kubeconfig in a secret
+	if err := util.KubeconfigWroteToSecret(
+		config,
+		"multicluster-controlplane-svc-kubeconfig",
+		fmt.Sprintf("https://multicluster-controlplane.%s.svc/", util.GetComponentNamespace()),
+		inClusterTrustBundlePEM,
+		kubeconfigCertPEM,
+		kubeconfigKeyPEM,
+	); err != nil {
+		return err
+	}
+
 	// for OCP or EKS, port shoule be set to 443 because route/loadbalancer maped 9443 on local to 443 on external host
 	externalHost := fmt.Sprintf("https://%s:%d/", cfg.Apiserver.ExternalHostname, cfg.Apiserver.Port)
 	if cfg.Apiserver.Port == 0 {
 		externalHost = fmt.Sprintf("https://%s/", cfg.Apiserver.ExternalHostname)
 	}
-	return util.KubeconfigWroteToSecret(
+
+	// expose controlplane external kubeconfig in a secret
+	if err := util.KubeconfigWroteToSecret(
 		config,
+		"multicluster-controlplane-kubeconfig",
 		externalHost,
 		inClusterTrustBundlePEM,
 		kubeconfigCertPEM,
-		kubeconfigKeyPEM)
+		kubeconfigKeyPEM,
+	); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // certsToRegenerate returns paths to certificates in the given certificate chains

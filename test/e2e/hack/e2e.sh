@@ -78,11 +78,20 @@ ca="${ca_dir}/ca.pem"
 cert="${ca_dir}/client.pem"
 key="${ca_dir}/client-key.pem"
 # use helm to install controlplane
-${HELM} install charts/multicluster-controlplane \
-    --kubeconfig ${kubeconfig} -n $namespace \
-    --set route.enabled=false,nodeport.enabled=true,nodeport.port=${external_host_port},apiserver.externalHostname=${external_host_ip},enableSelfManagement=true,image=${IMAGE_NAME},etcd.mode="external" \
-    --set-json 'etcd.servers=["http://etcd-0.etcd.multicluster-controlplane-etcd:2379", "http://etcd-1.etcd.multicluster-controlplane-etcd:2379", "http://etcd-2.etcd.multicluster-controlplane-etcd:2379"]' \
-    --set-file etcd.ca="${ca}",etcd.cert="${cert}",etcd.certkey="${key}" \
+${HELM} install charts/multicluster-controlplane --kubeconfig ${kubeconfig} \
+    -n $namespace \
+    --set route.enabled=false \
+    --set nodeport.enabled=true \
+    --set nodeport.port=${external_host_port} \
+    --set apiserver.externalHostname=${external_host_ip} \
+    --set enableSelfManagement=true \
+    --set image=${IMAGE_NAME} \
+    --set autoApprovalBootstrapUsers="system:admin" \
+    --set etcd.mode=external \
+    --set 'etcd.servers={"http://etcd-0.etcd.multicluster-controlplane-etcd:2379","http://etcd-1.etcd.multicluster-controlplane-etcd:2379","http://etcd-2.etcd.multicluster-controlplane-etcd:2379"}' \
+    --set-file etcd.ca="${ca}" \
+    --set-file etcd.cert="${cert}" \
+    --set-file etcd.certkey="${key}" \
     --generate-name
 
 wait_command "${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig"
@@ -99,8 +108,7 @@ agent_namespace="multicluster-controlplane-agent"
 ${KUBECTL}  --kubeconfig ${kubeconfig} delete ns ${agent_namespace} --ignore-not-found
 ${KUBECTL}  --kubeconfig ${kubeconfig} create ns ${agent_namespace}
 
-cp -f ${hubkubeconfig} ${agent_deploy_dir}/hub-kubeconfig
-${KUBECTL}  --kubeconfig ${agent_deploy_dir}/hub-kubeconfig config set-cluster multicluster-controlplane --server=https://multicluster-controlplane.multicluster-controlplane.svc:443
+kubectl --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-svc-kubeconfig -ojsonpath='{.data.kubeconfig}' | base64 -d > ${agent_deploy_dir}/hub-kubeconfig
 
 pushd $agent_deploy_dir
 ${KUSTOMIZE} edit set image quay.io/open-cluster-management/multicluster-controlplane=${IMAGE_NAME}

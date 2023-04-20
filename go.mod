@@ -12,7 +12,7 @@ require (
 	github.com/stretchr/testify v1.8.2
 	go.etcd.io/etcd/server/v3 v3.5.5
 	k8s.io/api v0.26.3
-	k8s.io/apiextensions-apiserver v0.26.1
+	k8s.io/apiextensions-apiserver v0.26.3
 	k8s.io/apimachinery v0.26.3
 	k8s.io/apiserver v0.26.3
 	k8s.io/client-go v0.26.3
