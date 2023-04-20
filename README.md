@@ -60,7 +60,7 @@ $ make deploy-etcd
 ## Install multicluster-controlplane
 Before start the controlplane, we should make sure config file is in path.
 
-### Option 1: Deploy multicluster-controlplane on Openshift/EKS Cluster
+### Option 1: Install multicluster-controlplane on a cluster
 
 #### Build image
 
@@ -69,36 +69,47 @@ $ export IMAGE_NAME=<customized image. default is quay.io/open-cluster-managemen
 $ make image
 ```
 
-#### Install 
+#### Use helm to install controlplane
 
-Set environment variables firstly and then deploy controlplane.
-* `HUB_NAME` (optional) is the namespace where the controlplane is deployed in. The default is `multicluster-controlplane`.
-* `IMAGE_NAME` (optional) is the customized image which can override the default image `quay.io/open-cluster-management/multicluster-controlplane:latest`.
+First, add ocm repo to helm
+```
+$ helm repo add ocm https://openclustermanagement.blob.core.windows.net/releases/
+$ helm repo update
+$ helm search repo ocm
+```
 
-Edit the config file:
-1. externalHostname can be missed/set to empty.
-2. port should be set to 443 
-
-For example: 
-
-```bash
+```
 $ export HUB_NAME=<hub name>
 $ export IMAGE_NAME=<your image>
-$ make deploy
+$ kubectl create ns ${HUB_NAME}
+$ helm install -n ${HUB_NAME} ocm/multicluster-controlplane --generate-name --set <values to set>
 ```
 
-### Option 2: Deploy multicluster-controlplane on Kind Cluster
-
-Edit the config file:
-1. externalHostname can be missed/set to empty.
-2. The range of valid port is 30000-32767
-
-Most steps are similar with Option 1, the only difference is deploy command:
-```bash
-$ make deploy
+After the chart is available, a secret named `multicluster-controlplane-kubeconfig` is created in namespace `HUB_NAME`, use kubeconfig to extract the kubeconfig file:
+```
+$ kubectl -n ${HUB_NAME} get secret multicluster-controlplane-kubeconfig -ojsonpath='{.data.kubeconfig}' | base64 -d > ${HUB_NAME}.kubeconfig
 ```
 
-### Option 3: Run controlplane as a local binary
+#### config the chart
+> Click [here](https://github.com/open-cluster-management-io/multicluster-controlplane/blob/main/charts/multicluster-controlplane/values.yaml) to see available config values.
+
+
+- If you want to provide your own ca pairs for controlplane, set the following arguements:
+  ```
+  helm install xxxx --set-file apiserver.ca="<path-to-ca>",apiserver.cakey="<path-to-ca-key>"
+  ```
+- If you want to use external etcd, set the following arguements:
+  ```
+  helm install xxxx --set etcd.mode="external",etcd.servers={server1, server2, ...} --set-file etcd.ca="<path-to-etcd-ca>",etcd.cert="<path-to-etcd-client-cert>",etcd.certkey="<path-to-etcd-client-cert-key>"
+  ```
+- If you want to exposing the service:
+  - While installing to OpenShift cluster, `.Values.route` should be set
+
+  - While installing to EKS cluster, `.Values.loadbalancer` shoule be set
+
+  - While installing to KinD cluster, `.Values.nodeport` shoube be set
+
+### Option 2: Run controlplane as a local binary
 
 ```bash
 $ make vendor
