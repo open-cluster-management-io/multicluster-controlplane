@@ -20,12 +20,12 @@ FEATURE_GATES=${FEATURE_GATES:-"DefaultClusterSet=true,ManagedClusterAutoApprova
 set -e
 
 source "${REPO_DIR}/hack/lib/init.sh"
-source "${REPO_DIR}/hack/lib/yaml.sh"
 
 # Shut down anyway if there's an error.
 set +e
 
 LOG_DIR=${LOG_DIR:-"/tmp"}
+APISERVER_LOG=${LOG_DIR}/kube-apiserver.log
 
 mkdir -p ${DATA_DIR}
 
@@ -75,12 +75,12 @@ function start_etcd {
 }
 
 function start_apiserver {
-    APISERVER_LOG=${LOG_DIR}/kube-apiserver.log
     "${GO_OUT}/multicluster-controlplane" \
     "server" \
     --controlplane-config-dir="${CONFIG_DIR}" \
     --cluster-auto-approval-users="${BOOTSTRAP_USERS}" \
     --feature-gates="${FEATURE_GATES}"  >"${APISERVER_LOG}" 2>&1 &
+
     APISERVER_PID=$!
     
     echo "Waiting for apiserver to come up"

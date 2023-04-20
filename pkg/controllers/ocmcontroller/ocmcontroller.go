@@ -8,7 +8,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/pkg/errors"
 
 	certv1 "k8s.io/api/certificates/v1"
@@ -32,6 +31,7 @@ import (
 	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
 	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
 	"open-cluster-management.io/multicluster-controlplane/pkg/features"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 	scheduling "open-cluster-management.io/placement/pkg/controllers/scheduling"
 	"open-cluster-management.io/placement/pkg/debugger"
 	"open-cluster-management.io/registration/pkg/helpers"
@@ -80,7 +80,7 @@ func runControllers(ctx context.Context,
 	restConfig *rest.Config,
 	kubeInformers genericinformers.SharedInformerFactory,
 	clusterAutoApprovalUsers []string) error {
-	eventRecorder := events.NewInMemoryRecorder("registration-controller")
+	eventRecorder := util.NewLoggingRecorder("registration-controller")
 
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
