@@ -89,6 +89,9 @@ wait_command "${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane g
 hubkubeconfig="${cluster_dir}/controlplane.kubeconfig"
 ${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig -ojsonpath='{.data.kubeconfig}' | base64 -d > ${hubkubeconfig}
 
+# TODO need a flag to indicate the controlplane is ready
+sleep 120
+
 echo "Deploy standalone controlplane agents ..."
 cp -r ${REPO_DIR}/hack/deploy/agent/* $agent_deploy_dir
 

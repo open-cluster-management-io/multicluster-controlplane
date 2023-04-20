@@ -3,8 +3,6 @@
 package e2e_test
 
 import (
-	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -12,11 +10,9 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
 
-	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -26,6 +22,8 @@ import (
 )
 
 const defaultNamespace = "default"
+
+const timeout = 30 * time.Second
 
 var (
 	hubKubeClient    kubernetes.Interface
@@ -80,55 +78,6 @@ var _ = ginkgo.BeforeSuite(func() {
 	}()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 })
-
-// TODO remove this after registration starts supporting auto approve
-func approveCSR(clusterName string) error {
-	return wait.Poll(1*time.Second, 60*time.Second, func() (bool, error) {
-		csrs, err := hubKubeClient.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("open-cluster-management.io/cluster-name=%s", clusterName),
-		})
-		if err != nil {
-			return false, err
-		}
-
-		if len(csrs.Items) == 0 {
-			return false, nil
-		}
-
-		for _, csr := range csrs.Items {
-			if isCSRInTerminalState(&csr.Status) {
-				continue
-			}
-
-			copied := csr.DeepCopy()
-			copied.Status.Conditions = append(csr.Status.Conditions, certificatesv1.CertificateSigningRequestCondition{
-				Type:           certificatesv1.CertificateApproved,
-				Status:         corev1.ConditionTrue,
-				Reason:         "AutoApprovedByE2ETest",
-				Message:        "Auto approved by e2e test",
-				LastUpdateTime: metav1.Now(),
-			})
-			_, err := hubKubeClient.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.TODO(), copied.Name, copied, metav1.UpdateOptions{})
-			if err != nil {
-				return false, err
-			}
-		}
-
-		return true, nil
-	})
-}
-
-func isCSRInTerminalState(status *certificatesv1.CertificateSigningRequestStatus) bool {
-	for _, c := range status.Conditions {
-		if c.Type == certificatesv1.CertificateApproved {
-			return true
-		}
-		if c.Type == certificatesv1.CertificateDenied {
-			return true
-		}
-	}
-	return false
-}
 
 func toManifest(object runtime.Object) workv1.Manifest {
 	manifest := workv1.Manifest{}

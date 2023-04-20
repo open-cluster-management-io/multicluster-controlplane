@@ -1244,7 +1244,6 @@ k8s.io/gengo v0.0.0-20210813121822-485abfe95c7c/go.mod h1:FiNAH4ZV3gBg2Kwh89tzAE
 k8s.io/gengo v0.0.0-20220902162205-c0856e24416d/go.mod h1:FiNAH4ZV3gBg2Kwh89tzAEV2be7d5xI0vBa/VySYy3E=
 k8s.io/klog v0.0.0-20181102134211-b9b56d5dfc92/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
 k8s.io/klog v0.3.0/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
-k8s.io/klog v1.0.0 h1:Pt+yjF5aB1xDSVbau4VsWe+dQNzA0qv1LlXdC2dF6Q8=
 k8s.io/klog v1.0.0/go.mod h1:4Bi6QPql/J/LkTDqv7R/cd3hPo4k2DG6Ptcz060Ez5I=
 k8s.io/klog/v2 v2.0.0/go.mod h1:PBfzABfn139FHAV07az/IF9Wp1bkk3vpT2XSJ76fSDE=
 k8s.io/klog/v2 v2.2.0/go.mod h1:Od+F08eJP+W3HUb4pSrPpgp9DGU4GzlpG/TmITuYh/Y=
@@ -1282,8 +1281,8 @@ open-cluster-management.io/api v0.10.1-0.20230310025041-ca0770573954 h1:u+X8exw4
 open-cluster-management.io/api v0.10.1-0.20230310025041-ca0770573954/go.mod h1:TjWobG3dTZJf/Ye04358/F/381RjE/+HXVDGMnZBpjc=
 open-cluster-management.io/placement v0.10.0 h1:jljvrnB4sJ6zKXiawtTGSdWqzCbsKEFFyxnRX0dqfkc=
 open-cluster-management.io/placement v0.10.0/go.mod h1:xzpg+Krnm3AvRMV9juM4YAn6zkXhTmSJH8CFe9f9nKc=
-open-cluster-management.io/registration v0.10.1-0.20230404071336-ad1bef915353 h1:mmqq2fG7ezrSvDth19S3wdSY0YoNCiAar2jWj9vnUk0=
-open-cluster-management.io/registration v0.10.1-0.20230404071336-ad1bef915353/go.mod h1:jcpXpxlmDgAITTXB2UK7BG/T9CRAsJPp6WI0jjFaF7M=
+open-cluster-management.io/registration v0.10.1-0.20230419032057-69e686faa191 h1:K2qdNBIR88zFIz8vKXFq8S1AXm1VZTrSl0lETAwzA9U=
+open-cluster-management.io/registration v0.10.1-0.20230419032057-69e686faa191/go.mod h1:jcpXpxlmDgAITTXB2UK7BG/T9CRAsJPp6WI0jjFaF7M=
 open-cluster-management.io/work v0.10.1-0.20230314090112-ee923cd5f632 h1:inYQqpEWbrgXDy6D57QsBW2molbcO0WtCIAgtURz0+E=
 open-cluster-management.io/work v0.10.1-0.20230314090112-ee923cd5f632/go.mod h1:P/Ipsp84fwkUHQDw64Vxo9XaziSYv4fq55sq1aEB1pA=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=

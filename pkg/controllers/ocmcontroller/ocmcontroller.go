@@ -10,6 +10,9 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/pkg/errors"
+
+	certv1 "k8s.io/api/certificates/v1"
+	certv1beta1 "k8s.io/api/certificates/v1beta1"
 	"k8s.io/client-go/dynamic"
 	genericinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -17,6 +20,7 @@ import (
 	kubeevents "k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
+
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
 	clusterv1client "open-cluster-management.io/api/client/cluster/clientset/versioned"
@@ -25,9 +29,11 @@ import (
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned"
 	workv1informers "open-cluster-management.io/api/client/work/informers/externalversions"
 	ocmfeature "open-cluster-management.io/api/feature"
+	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
+	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
+	"open-cluster-management.io/multicluster-controlplane/pkg/features"
 	scheduling "open-cluster-management.io/placement/pkg/controllers/scheduling"
 	"open-cluster-management.io/placement/pkg/debugger"
-	"open-cluster-management.io/registration/pkg/features"
 	"open-cluster-management.io/registration/pkg/helpers"
 	"open-cluster-management.io/registration/pkg/hub/addon"
 	"open-cluster-management.io/registration/pkg/hub/clusterrole"
@@ -38,12 +44,7 @@ import (
 	"open-cluster-management.io/registration/pkg/hub/managedclustersetbinding"
 	"open-cluster-management.io/registration/pkg/hub/rbacfinalizerdeletion"
 	"open-cluster-management.io/registration/pkg/hub/taint"
-
-	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
-	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
 )
-
-var ResyncInterval = 5 * time.Minute
 
 func InstallControllers(clusterAutoApprovalUsers []string) func(<-chan struct{}, *aggregatorapiserver.Config) error {
 	return func(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
@@ -125,7 +126,7 @@ func runControllers(ctx context.Context,
 	)
 
 	csrReconciles := []csr.Reconciler{csr.NewCSRRenewalReconciler(kubeClient, controllerContext.EventRecorder)}
-	if features.DefaultHubMutableFeatureGate.Enabled(ocmfeature.ManagedClusterAutoApproval) {
+	if features.DefaultControlplaneMutableFeatureGate.Enabled(ocmfeature.ManagedClusterAutoApproval) {
 		csrReconciles = append(csrReconciles, csr.NewCSRBootstrapReconciler(
 			kubeClient,
 			clusterClient,
@@ -136,15 +137,17 @@ func runControllers(ctx context.Context,
 	}
 
 	var csrController factory.Controller
-	if features.DefaultHubMutableFeatureGate.Enabled(ocmfeature.V1beta1CSRAPICompatibility) {
+	if features.DefaultControlplaneMutableFeatureGate.Enabled(ocmfeature.V1beta1CSRAPICompatibility) {
 		v1CSRSupported, v1beta1CSRSupported, err := helpers.IsCSRSupported(kubeClient)
 		if err != nil {
 			return errors.Wrapf(err, "failed CSR api discovery")
 		}
 
 		if !v1CSRSupported && v1beta1CSRSupported {
-			csrController = csr.NewV1beta1CSRApprovingController(
-				kubeInformers.Certificates().V1beta1().CertificateSigningRequests(),
+			csrController = csr.NewCSRApprovingController[*certv1beta1.CertificateSigningRequest](
+				kubeInformers.Certificates().V1beta1().CertificateSigningRequests().Informer(),
+				kubeInformers.Certificates().V1beta1().CertificateSigningRequests().Lister(),
+				csr.NewCSRV1beta1Approver(kubeClient),
 				csrReconciles,
 				controllerContext.EventRecorder,
 			)
@@ -152,8 +155,10 @@ func runControllers(ctx context.Context,
 		}
 	}
 	if csrController == nil {
-		csrController = csr.NewCSRApprovingController(
-			kubeInformers.Certificates().V1().CertificateSigningRequests(),
+		csrController = csr.NewCSRApprovingController[*certv1.CertificateSigningRequest](
+			kubeInformers.Certificates().V1().CertificateSigningRequests().Informer(),
+			kubeInformers.Certificates().V1().CertificateSigningRequests().Lister(),
+			csr.NewCSRV1Approver(kubeClient),
 			csrReconciles,
 			controllerContext.EventRecorder,
 		)
@@ -213,7 +218,7 @@ func runControllers(ctx context.Context,
 	)
 
 	var defaultManagedClusterSetController, globalManagedClusterSetController factory.Controller
-	if features.DefaultHubMutableFeatureGate.Enabled(ocmfeature.DefaultClusterSet) {
+	if features.DefaultControlplaneMutableFeatureGate.Enabled(ocmfeature.DefaultClusterSet) {
 		defaultManagedClusterSetController = managedclusterset.NewDefaultManagedClusterSetController(
 			clusterClient.ClusterV1beta2(),
 			clusterInformers.Cluster().V1beta2().ManagedClusterSets(),
@@ -278,7 +283,7 @@ func runControllers(ctx context.Context,
 	go clusterroleController.Run(ctx, 1)
 	go addOnHealthCheckController.Run(ctx, 1)
 	go addOnFeatureDiscoveryController.Run(ctx, 1)
-	if features.DefaultHubMutableFeatureGate.Enabled(ocmfeature.DefaultClusterSet) {
+	if features.DefaultControlplaneMutableFeatureGate.Enabled(ocmfeature.DefaultClusterSet) {
 		go defaultManagedClusterSetController.Run(ctx, 1)
 		go globalManagedClusterSetController.Run(ctx, 1)
 	}

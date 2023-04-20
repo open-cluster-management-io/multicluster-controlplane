@@ -19,9 +19,6 @@ import (
 	garbagecollectorconfig "k8s.io/kubernetes/pkg/controller/garbagecollector/config"
 
 	kubecontrollerconfig "open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/config"
-
-	// add the kubernetes feature gates
-	_ "k8s.io/kubernetes/pkg/features"
 )
 
 // KubeControllerManagerOptions is the main context object for the kube-controller manager.

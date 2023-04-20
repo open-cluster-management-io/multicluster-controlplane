@@ -23,8 +23,12 @@ spec:
         args:
         - "/multicluster-controlplane"
         - "server"
-        - "--controlplane-config-dir=/controlplane_config"
-        - "--feature-gates=DefaultClusterSet=true,OpenAPIV3=false"
+        {{- if .Values.features }}
+        - "--feature-gates={{ .Values.features }}"
+        {{- end }}
+        {{- if .Values.autoApprovalBootstrapUsers }}
+        - "--cluster-auto-approval-users={{ .Values.autoApprovalBootstrapUsers }}"
+        {{- end }}
         {{- if eq .Values.enableSelfManagement true }}
         - "--self-management"
         {{- end }}

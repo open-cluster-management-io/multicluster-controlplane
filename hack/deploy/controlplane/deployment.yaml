@@ -24,7 +24,8 @@ spec:
           - "server"
           - "--self-management"
           - "--controlplane-config-dir=/controlplane_config"
-          - "--feature-gates=DefaultClusterSet=true,OpenAPIV3=false"
+          - "--cluster-auto-approval-users=system:admin"
+          - "--feature-gates=DefaultClusterSet=true,ManagedClusterAutoApproval=true"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/openshift/library-go/pkg/assets"
@@ -30,11 +32,12 @@ import (
 
 	workclientset "open-cluster-management.io/api/client/work/clientset/versioned"
 	workinformers "open-cluster-management.io/api/client/work/informers/externalversions"
-	"open-cluster-management.io/api/feature"
+	ocmfeature "open-cluster-management.io/api/feature"
+	"open-cluster-management.io/multicluster-controlplane/pkg/features"
 	"open-cluster-management.io/registration/pkg/clientcert"
+	registrationfeatures "open-cluster-management.io/registration/pkg/features"
 	"open-cluster-management.io/registration/pkg/spoke"
 	"open-cluster-management.io/registration/pkg/spoke/managedcluster"
-	"open-cluster-management.io/work/pkg/features"
 	"open-cluster-management.io/work/pkg/helper"
 	"open-cluster-management.io/work/pkg/spoke/auth"
 	"open-cluster-management.io/work/pkg/spoke/controllers/appliedmanifestcontroller"
@@ -85,11 +88,28 @@ func NewAgentOptions() *AgentOptions {
 }
 
 func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
-	o.RegistrationAgent.AddFlags(fs)
+	features.DefaultAgentMutableFeatureGate.AddFlag(fs)
+	fs.StringVar(&o.RegistrationAgent.ClusterName, "cluster-name", o.RegistrationAgent.ClusterName,
+		"If non-empty, will use as cluster name instead of generated random name.")
+	fs.StringVar(&o.RegistrationAgent.BootstrapKubeconfig, "bootstrap-kubeconfig", o.RegistrationAgent.BootstrapKubeconfig,
+		"The path of the kubeconfig file for agent bootstrap.")
+	fs.StringVar(&o.RegistrationAgent.HubKubeconfigSecret, "hub-kubeconfig-secret", o.RegistrationAgent.HubKubeconfigSecret,
+		"The name of secret in component namespace storing kubeconfig for hub.")
+	fs.StringVar(&o.RegistrationAgent.HubKubeconfigDir, "hub-kubeconfig-dir", o.RegistrationAgent.HubKubeconfigDir,
+		"The mount path of hub-kubeconfig-secret in the container.")
+	fs.StringVar(&o.RegistrationAgent.SpokeKubeconfig, "spoke-kubeconfig", o.RegistrationAgent.SpokeKubeconfig,
+		"The path of the kubeconfig file for managed/spoke cluster. If this is not set, will use '--kubeconfig' to build client to connect to the managed cluster.")
+	fs.StringArrayVar(&o.RegistrationAgent.SpokeExternalServerURLs, "spoke-external-server-urls", o.RegistrationAgent.SpokeExternalServerURLs,
+		"A list of reachable spoke cluster api server URLs for hub cluster.")
+	fs.DurationVar(&o.RegistrationAgent.ClusterHealthCheckPeriod, "cluster-healthcheck-period", o.RegistrationAgent.ClusterHealthCheckPeriod,
+		"The period to check managed cluster kube-apiserver health")
+	fs.IntVar(&o.RegistrationAgent.MaxCustomClusterClaims, "max-custom-cluster-claims", o.RegistrationAgent.MaxCustomClusterClaims,
+		"The max number of custom cluster claims to expose.")
 	fs.Float32Var(&o.QPS, "spoke-kube-api-qps", o.QPS, "QPS to use while talking with apiserver on spoke cluster.")
 	fs.IntVar(&o.Burst, "spoke-kube-api-burst", o.Burst, "Burst to use while talking with apiserver on spoke cluster.")
 	fs.DurationVar(&o.StatusSyncInterval, "status-sync-interval", o.StatusSyncInterval, "Interval to sync resource status to hub.")
-	fs.DurationVar(&o.AppliedManifestWorkEvictionGracePeriod, "appliedmanifestwork-eviction-grace-period", o.AppliedManifestWorkEvictionGracePeriod, "Grace period for appliedmanifestwork eviction")
+	fs.DurationVar(&o.AppliedManifestWorkEvictionGracePeriod, "appliedmanifestwork-eviction-grace-period", o.AppliedManifestWorkEvictionGracePeriod,
+		"Grace period for appliedmanifestwork eviction")
 }
 
 func (o *AgentOptions) WithClusterName(clusterName string) *AgentOptions {
@@ -171,6 +191,15 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 		ctrlContext := &controllercmd.ControllerContext{
 			KubeConfig:    o.KubeConfig,
 			EventRecorder: o.eventRecorder,
+		}
+
+		// set registration features
+		registrationFeatures := map[string]bool{}
+		for feature := range registrationfeatures.DefaultSpokeMutableFeatureGate.GetAll() {
+			registrationFeatures[string(feature)] = features.DefaultAgentMutableFeatureGate.Enabled(feature)
+		}
+		if err := registrationfeatures.DefaultSpokeMutableFeatureGate.SetFromMap(registrationFeatures); err != nil {
+			klog.Fatalf("failed to set registration features, %v", err)
 		}
 
 		if err := o.RegistrationAgent.RunSpokeAgent(ctx, ctrlContext); err != nil {
@@ -315,7 +344,7 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		o.RegistrationAgent.ClusterName,
 		eventRecorder,
 		restMapper,
-	).NewExecutorValidator(ctx, features.DefaultSpokeMutableFeatureGate.Enabled(feature.ExecutorValidatingCaches))
+	).NewExecutorValidator(ctx, features.DefaultAgentMutableFeatureGate.Enabled(ocmfeature.ExecutorValidatingCaches))
 
 	manifestWorkController := manifestcontroller.NewManifestWorkController(
 		eventRecorder,

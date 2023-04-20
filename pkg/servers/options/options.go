@@ -29,16 +29,20 @@ import (
 
 	"github.com/spf13/pflag"
 
+	// add the kubernetes feature gates
+	_ "k8s.io/kubernetes/pkg/features"
+
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/metrics"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	aggregatorscheme "k8s.io/kube-aggregator/pkg/apiserver/scheme"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/controlplane"
@@ -48,7 +52,9 @@ import (
 	kubeletclient "k8s.io/kubernetes/pkg/kubelet/client"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 	netutils "k8s.io/utils/net"
+
 	kubectrmgroptions "open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/options"
+	controlplanefeatures "open-cluster-management.io/multicluster-controlplane/pkg/features"
 
 	"open-cluster-management.io/multicluster-controlplane/pkg/certificate"
 	"open-cluster-management.io/multicluster-controlplane/pkg/etcd"
@@ -228,44 +234,34 @@ func NewServerRunOptions() *ServerRunOptions {
 }
 
 func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
-	options.GenericServerRunOptions.AddUniversalFlags(fs)
-	options.SecureServing.AddFlags(fs)
-	options.Etcd.AddFlags(fs)
-	options.Features.AddFlags(fs)
-	options.Authentication.AddFlags(fs)
-	options.Authorization.AddFlags(fs)
-	options.Admission.AddFlags(fs)
-	options.ExtraOptions.EmbeddedEtcd.AddFlags(fs)
-
-	kubeCtrMgrNamedFlagSets := options.KubeControllerManagerOptions.Flags()
-	for _, nfs := range kubeCtrMgrNamedFlagSets.FlagSets {
-		fs.AddFlagSet(nfs)
-	}
-
-	fs.StringVar(&options.ServiceAccountSigningKeyFile, "service-account-signing-key-file", options.ServiceAccountSigningKeyFile, "Path to the file that contains the current private key of the service account token issuer. The issuer will sign issued ID tokens with this private key.")
-	fs.StringVar(&options.ServiceClusterIPRanges, "service-cluster-ip-range", options.ServiceClusterIPRanges, "A CIDR notation IP range from which to assign service cluster IPs. This must not overlap with any IP ranges assigned to nodes or pods. Max of two dual-stack CIDRs is allowed.")
-	fs.BoolVar(&options.EnableAggregatorRouting, "enable-aggregator-routing", options.EnableAggregatorRouting, "Turns on aggregator routing requests to endpoints IP rather than cluster IP.")
-	fs.StringVar(&options.ExtraOptions.ClientKeyFile, "client-key-file", options.ExtraOptions.ClientKeyFile, "client cert key file")
-	fs.StringVar(&options.ControlplaneDataDir, "controlplane-data-dir", options.ControlplaneDataDir, "The controlplane data directory.")
-	fs.StringVar(&options.ControlplaneConfigDir, "controlplane-config-dir", options.ControlplaneConfigDir, "Path to the file directory contains minimum requried configurations for controlplane server.")
-	fs.BoolVar(&options.EnableSelfManagement, "self-management", options.EnableSelfManagement, "Register the current controlplane as a managed cluster.")
-	fs.StringArrayVar(&options.ClusterAutoApprovalUsers, "cluster-auto-approval-users", options.ClusterAutoApprovalUsers, "A bootstrap user list whose cluster registration requests can be automatically approved.")
+	controlplanefeatures.DefaultControlplaneMutableFeatureGate.AddFlag(fs)
+	fs.StringVar(&options.ControlplaneConfigDir, "controlplane-config-dir", options.ControlplaneConfigDir,
+		"Path to the file directory contains minimum requried configurations for controlplane server.")
+	fs.BoolVar(&options.EnableSelfManagement, "self-management", options.EnableSelfManagement,
+		"Register the current controlplane as a managed cluster.")
+	fs.StringArrayVar(&options.ClusterAutoApprovalUsers, "cluster-auto-approval-users", options.ClusterAutoApprovalUsers,
+		"A bootstrap user list whose cluster registration requests can be automatically approved.")
 }
 
 // Complete set default Options.
 // Should be called after kube-apiserver flags parsed.
-// TODO think about how to refactor this
 func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
+	// configure kube-apiserver features here
+	if err := utilfeature.DefaultMutableFeatureGate.Set("OpenAPIV3=false"); err != nil {
+		return err
+	}
+	for name := range utilfeature.DefaultMutableFeatureGate.GetAll() {
+		klog.Infof("kube-apiserver feature %s is %v", name, utilfeature.DefaultMutableFeatureGate.Enabled(name))
+	}
+
 	// Load configurations from config file
 	config, err := configs.LoadConfig(s.ControlplaneConfigDir)
 	if err != nil {
 		return err
 	}
 
-	if config != nil {
-		if err := s.InitServerRunOptions(config); err != nil {
-			return err
-		}
+	if err := s.InitServerRunOptions(config); err != nil {
+		return err
 	}
 
 	// GenericServerRunOptions
