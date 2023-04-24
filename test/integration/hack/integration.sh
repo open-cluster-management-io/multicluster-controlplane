@@ -33,11 +33,23 @@ cat ${output}/controlplane/controlpane_pid
 
 apiserver=$(kubectl config view --kubeconfig ${controlplane_kubeconfig} -ojsonpath='{.clusters[0].cluster.server}')
 echo "Joining the managed cluster $managed_cluster to ${apiserver} with clusteradm"
-token_output=$(clusteradm --kubeconfig=${controlplane_kubeconfig} get token --use-bootstrap-token)
+token_output=$(${output}/bin/clusteradm --kubeconfig=${controlplane_kubeconfig} get token --use-bootstrap-token)
 token=$(echo $token_output | awk -F ' ' '{print $1}' | awk -F '=' '{print $2}')
 ${output}/bin/clusteradm --kubeconfig=${kubeconfig} join --hub-token $token --hub-apiserver "${apiserver}" --cluster-name $managed_cluster --wait
+if [ 0 -ne $? ]; then
+  echo "Failed to join managed cluster $managed_cluster"
+  exit 1
+fi
 ${output}/bin/clusteradm --kubeconfig=${controlplane_kubeconfig} accept --clusters $managed_cluster
+if [ 0 -ne $? ]; then
+  echo "Failed to accept managed cluster $managed_cluster"
+  exit 1
+fi
 ${output}/bin/clusteradm --kubeconfig=${kubeconfig} unjoin --cluster-name=$managed_cluster
+if [ 0 -ne $? ]; then
+  echo "Failed to unjoin managed cluster $managed_cluster"
+  exit 1
+fi
 
 echo "Stop the controlplane ..."
 kill $pid
