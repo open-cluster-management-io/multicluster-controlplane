@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
@@ -64,8 +63,6 @@ type clusterCreateOptions struct {
 	hubClusterClient clusterclient.Interface
 	hubWorkClient    workclient.Interface
 
-	spokeRestConfig *rest.Config
-
 	metricsRecorder *metrics.MetricsRecorder
 }
 
@@ -108,13 +105,6 @@ func (o *clusterCreateOptions) Complete() error {
 	o.metricsRecorder, err = metrics.BuildMetricsGetter(o.Kubeconfig, o.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to build metrics getter with %s, %v", o.Kubeconfig, err)
-	}
-
-	if !o.Pseudo {
-		o.spokeRestConfig, err = clientcmd.BuildConfigFromFlags("", o.SpokeKubeconfig)
-		if err != nil {
-			return fmt.Errorf("failed to build spoke kubeconfig with %s, %v", o.SpokeKubeconfig, err)
-		}
 	}
 
 	return nil
@@ -269,7 +259,7 @@ func (o *clusterCreateOptions) registerCluster(ctx context.Context, clusterName 
 	utils.PrintMsg(fmt.Sprintf("starting the agent for cluster %q ...", clusterName))
 	klusterletAgent := agent.NewAgentOptions().
 		WithClusterName(clusterName).
-		WithSpokeKubeconfig(o.spokeRestConfig).
+		WithKubeconfig(o.SpokeKubeconfig).
 		WithBootstrapKubeconfig(o.HubKubeconfig).
 		WithHubKubeconfigDir(agentHubKubeconfigDir).
 		WithHubKubeconfigSecreName(fmt.Sprintf("%s-hub-kubeconfig-secret", clusterName))
