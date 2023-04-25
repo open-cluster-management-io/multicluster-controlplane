@@ -362,6 +362,7 @@ func (o *clusterCreateOptions) createWorks(ctx context.Context, clusterName stri
 		creationTime := time.Since(startTime) / (1000 * time.Microsecond)
 
 		waitStartTime := time.Now()
+		var appliedTime time.Duration
 		if err := wait.Poll(1*time.Second, o.Timeout, func() (bool, error) {
 			work, err := o.hubWorkClient.WorkV1().ManifestWorks(work.Namespace).Get(ctx, work.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
@@ -369,6 +370,12 @@ func (o *clusterCreateOptions) createWorks(ctx context.Context, clusterName stri
 			}
 			if err != nil {
 				return false, err
+			}
+
+			if meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
+				if appliedTime == 0 {
+					appliedTime = time.Since(waitStartTime) / (1000 * time.Microsecond)
+				}
 			}
 
 			if meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkAvailable) {
@@ -380,12 +387,12 @@ func (o *clusterCreateOptions) createWorks(ctx context.Context, clusterName stri
 			return err
 		}
 		// milli second
-		waitEndTime := time.Since(waitStartTime) / (1000 * time.Microsecond)
+		availableTime := time.Since(waitStartTime) / (1000 * time.Microsecond)
 
 		// second
 		usedTime := time.Since(startTime) / (time.Millisecond * time.Microsecond)
-		if err := utils.AppendRecordToFile(workRecordFile, fmt.Sprintf("%d,%d,%d,%d",
-			index, creationTime, waitEndTime, usedTime)); err != nil {
+		if err := utils.AppendRecordToFile(workRecordFile, fmt.Sprintf("%d,%d,%d,%d,%d",
+			index, creationTime, appliedTime, availableTime, usedTime)); err != nil {
 			return err
 		}
 	}

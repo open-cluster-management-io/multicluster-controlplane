@@ -34,6 +34,7 @@ import (
 	workinformers "open-cluster-management.io/api/client/work/informers/externalversions"
 	ocmfeature "open-cluster-management.io/api/feature"
 	"open-cluster-management.io/multicluster-controlplane/pkg/features"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 	"open-cluster-management.io/registration/pkg/clientcert"
 	registrationfeatures "open-cluster-management.io/registration/pkg/features"
 	"open-cluster-management.io/registration/pkg/spoke"
@@ -44,6 +45,11 @@ import (
 	"open-cluster-management.io/work/pkg/spoke/controllers/finalizercontroller"
 	"open-cluster-management.io/work/pkg/spoke/controllers/manifestcontroller"
 	"open-cluster-management.io/work/pkg/spoke/controllers/statuscontroller"
+)
+
+const (
+	availableControllerWorker = 10
+	cleanupControllerWorker   = 10
 )
 
 //go:embed crds
@@ -79,7 +85,7 @@ type AgentOptions struct {
 func NewAgentOptions() *AgentOptions {
 	return &AgentOptions{
 		RegistrationAgent:                      spoke.NewSpokeAgentOptions(),
-		eventRecorder:                          events.NewInMemoryRecorder("managed-cluster-agents"),
+		eventRecorder:                          util.NewLoggingRecorder("managed-cluster-agents"),
 		Burst:                                  100,
 		QPS:                                    50,
 		StatusSyncInterval:                     10 * time.Second,
@@ -418,12 +424,14 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 
 	go workInformerFactory.Start(ctx.Done())
 	go spokeWorkInformerFactory.Start(ctx.Done())
+
 	go addFinalizerController.Run(ctx, 1)
-	go appliedManifestWorkFinalizeController.Run(ctx, 1)
+	go appliedManifestWorkFinalizeController.Run(ctx, cleanupControllerWorker)
 	go unmanagedAppliedManifestWorkController.Run(ctx, 1)
 	go appliedManifestWorkController.Run(ctx, 1)
 	go manifestWorkController.Run(ctx, 1)
-	go manifestWorkFinalizeController.Run(ctx, 1)
-	go availableStatusController.Run(ctx, 1)
+	go manifestWorkFinalizeController.Run(ctx, cleanupControllerWorker)
+	go availableStatusController.Run(ctx, availableControllerWorker)
+
 	return nil
 }
