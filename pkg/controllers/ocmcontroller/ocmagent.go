@@ -25,13 +25,12 @@ const selfManagedClusterName = "local-cluster"
 
 func InstallAgent(controlplaneCertDir string) func(<-chan struct{}, *aggregatorapiserver.Config) error {
 	return func(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
-		go func() {
-			spokeRestConfig, err := rest.InClusterConfig()
-			if err != nil {
-				klog.Warning("Current runtime environment is not in a cluster, ignore --self-management flag.")
-				return
-			}
+		if _, err := rest.InClusterConfig(); err != nil {
+			klog.Warning("Current runtime environment is not in a cluster, ignore --self-management flag.")
+			return nil
+		}
 
+		go func() {
 			hubRestConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
 			hubRestConfig.ContentType = "application/json"
 
@@ -64,7 +63,6 @@ func InstallAgent(controlplaneCertDir string) func(<-chan struct{}, *aggregatora
 			// TODO also need provide feature gates
 			klusterletAgent := agent.NewAgentOptions().
 				WithClusterName(selfManagedClusterName).
-				WithSpokeKubeconfig(spokeRestConfig).
 				WithBootstrapKubeconfig(bootstrapKubeConfig).
 				WithHubKubeconfigDir(agentHubKubeconfigDir)
 

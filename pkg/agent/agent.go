@@ -72,14 +72,16 @@ func init() {
 
 type AgentOptions struct {
 	RegistrationAgent *spoke.SpokeAgentOptions
-	KubeConfig        *rest.Config
-	eventRecorder     events.Recorder
 
 	StatusSyncInterval                     time.Duration
 	AppliedManifestWorkEvictionGracePeriod time.Duration
 
 	Burst int
 	QPS   float32
+
+	KubeConfig string
+
+	eventRecorder events.Recorder
 }
 
 func NewAgentOptions() *AgentOptions {
@@ -103,6 +105,8 @@ func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
 		"The name of secret in component namespace storing kubeconfig for hub.")
 	fs.StringVar(&o.RegistrationAgent.HubKubeconfigDir, "hub-kubeconfig-dir", o.RegistrationAgent.HubKubeconfigDir,
 		"The mount path of hub-kubeconfig-secret in the container.")
+	fs.StringVar(&o.KubeConfig, "kubeconfig", o.KubeConfig,
+		"The path of the kubeconfig file for current cluster. If this is not set, will try to get the kubeconfig from cluster inside")
 	fs.StringVar(&o.RegistrationAgent.SpokeKubeconfig, "spoke-kubeconfig", o.RegistrationAgent.SpokeKubeconfig,
 		"The path of the kubeconfig file for managed/spoke cluster. If this is not set, will use '--kubeconfig' to build client to connect to the managed cluster.")
 	fs.StringArrayVar(&o.RegistrationAgent.SpokeExternalServerURLs, "spoke-external-server-urls", o.RegistrationAgent.SpokeExternalServerURLs,
@@ -123,8 +127,13 @@ func (o *AgentOptions) WithClusterName(clusterName string) *AgentOptions {
 	return o
 }
 
-func (o *AgentOptions) WithSpokeKubeconfig(KubeConfig *rest.Config) *AgentOptions {
-	o.KubeConfig = KubeConfig
+func (o *AgentOptions) WithKubeconfig(kubeConfig string) *AgentOptions {
+	o.KubeConfig = kubeConfig
+	return o
+}
+
+func (o *AgentOptions) WithSpokeKubeconfig(spokeKubeConfig string) *AgentOptions {
+	o.RegistrationAgent.SpokeKubeconfig = spokeKubeConfig
 	return o
 }
 
@@ -143,47 +152,33 @@ func (o *AgentOptions) WithHubKubeconfigSecreName(hubKubeconfigSecreName string)
 	return o
 }
 
-func (o *AgentOptions) Complete() error {
-	if o.KubeConfig != nil {
-		return nil
-	}
+func (o *AgentOptions) RunAgent(ctx context.Context) error {
+	// building in-cluster/management (hosted mode) kubeconfig
+	inClusterKubeConfig, err := rest.InClusterConfig()
+	if err != nil {
+		klog.Warningf("failed to get kubeconfig from cluster inside, will use '--kubeconfig' to build client")
 
-	if o.RegistrationAgent.SpokeKubeconfig == "" {
-		KubeConfig, err := rest.InClusterConfig()
+		inClusterKubeConfig, err = clientcmd.BuildConfigFromFlags("", o.KubeConfig)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to load kubeconfig from file %q: %v", o.KubeConfig, err)
 		}
-
-		o.KubeConfig = KubeConfig
-		return nil
 	}
 
-	KubeConfig, err := clientcmd.BuildConfigFromFlags("", o.RegistrationAgent.SpokeKubeconfig)
+	ctrlContext := &controllercmd.ControllerContext{
+		KubeConfig:    inClusterKubeConfig,
+		EventRecorder: o.eventRecorder,
+	}
+
+	// building kubeconfig for the spoke/managed cluster
+	spokeKubeConfig, err := o.spokeKubeConfig(ctrlContext)
 	if err != nil {
 		return err
 	}
 
-	o.KubeConfig = KubeConfig
-	return nil
-}
+	spokeKubeConfig.QPS = o.QPS
+	spokeKubeConfig.Burst = o.Burst
 
-func (o *AgentOptions) Validate() error {
-	return nil
-}
-
-func (o *AgentOptions) RunAgent(ctx context.Context) error {
-	if err := o.Complete(); err != nil {
-		return err
-	}
-
-	if err := o.Validate(); err != nil {
-		return err
-	}
-
-	o.KubeConfig.QPS = o.QPS
-	o.KubeConfig.Burst = o.Burst
-
-	apiExtensionsClient, err := apiextensionsclient.NewForConfig(o.KubeConfig)
+	apiExtensionsClient, err := apiextensionsclient.NewForConfig(spokeKubeConfig)
 	if err != nil {
 		return err
 	}
@@ -194,11 +189,6 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 
 	klog.Infof("Starting registration agent")
 	go func() {
-		ctrlContext := &controllercmd.ControllerContext{
-			KubeConfig:    o.KubeConfig,
-			EventRecorder: o.eventRecorder,
-		}
-
 		// set registration features
 		registrationFeatures := map[string]bool{}
 		for feature := range registrationfeatures.DefaultSpokeMutableFeatureGate.GetAll() {
@@ -224,9 +214,8 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 		return err
 	}
 
-	//TODO also need update the appliedmanifestworks finalizer when we stop this pod
 	klog.Infof("Starting work agent")
-	if err := o.startWorkControllers(ctx, hubRestConfig, o.KubeConfig, o.eventRecorder); err != nil {
+	if err := o.startWorkControllers(ctx, hubRestConfig, spokeKubeConfig, o.eventRecorder); err != nil {
 		klog.Fatalf("failed to run work agent, %v", err)
 	}
 
@@ -434,4 +423,16 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 	go availableStatusController.Run(ctx, availableControllerWorker)
 
 	return nil
+}
+
+func (o *AgentOptions) spokeKubeConfig(controllerContext *controllercmd.ControllerContext) (*rest.Config, error) {
+	if o.RegistrationAgent.SpokeKubeconfig == "" {
+		return controllerContext.KubeConfig, nil
+	}
+
+	spokeRestConfig, err := clientcmd.BuildConfigFromFlags("", o.RegistrationAgent.SpokeKubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load spoke kubeconfig from file %q: %v", o.RegistrationAgent.SpokeKubeconfig, err)
+	}
+	return spokeRestConfig, nil
 }
