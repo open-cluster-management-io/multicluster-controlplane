@@ -79,7 +79,8 @@ type AgentOptions struct {
 	Burst int
 	QPS   float32
 
-	KubeConfig string
+	KubeConfig  string
+	WorkAgentID string
 
 	eventRecorder events.Recorder
 }
@@ -109,6 +110,7 @@ func (o *AgentOptions) AddFlags(fs *pflag.FlagSet) {
 		"The path of the kubeconfig file for current cluster. If this is not set, will try to get the kubeconfig from cluster inside")
 	fs.StringVar(&o.RegistrationAgent.SpokeKubeconfig, "spoke-kubeconfig", o.RegistrationAgent.SpokeKubeconfig,
 		"The path of the kubeconfig file for managed/spoke cluster. If this is not set, will use '--kubeconfig' to build client to connect to the managed cluster.")
+	fs.StringVar(&o.WorkAgentID, "work-agent-id", o.WorkAgentID, "ID of the work agent to identify the work this agent should handle after restart/recovery.")
 	fs.StringArrayVar(&o.RegistrationAgent.SpokeExternalServerURLs, "spoke-external-server-urls", o.RegistrationAgent.SpokeExternalServerURLs,
 		"A list of reachable spoke cluster api server URLs for hub cluster.")
 	fs.DurationVar(&o.RegistrationAgent.ClusterHealthCheckPeriod, "cluster-healthcheck-period", o.RegistrationAgent.ClusterHealthCheckPeriod,
@@ -295,7 +297,10 @@ func (o *AgentOptions) WaitForValidHubKubeConfig(ctx context.Context, kubeconfig
 func (o *AgentOptions) startWorkControllers(ctx context.Context,
 	hubRestConfig, spokeRestConfig *rest.Config, eventRecorder events.Recorder) error {
 	hubhash := helper.HubHash(hubRestConfig.Host)
-	agentID := fmt.Sprintf("%s-%s", o.RegistrationAgent.ClusterName, hubhash)
+	agentID := o.WorkAgentID
+	if len(agentID) == 0 {
+		agentID = fmt.Sprintf("%s-%s", o.RegistrationAgent.ClusterName, hubhash)
+	}
 
 	hubWorkClient, err := workclientset.NewForConfig(hubRestConfig)
 	if err != nil {
@@ -351,7 +356,8 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		workInformerFactory.Work().V1().ManifestWorks().Lister().ManifestWorks(o.RegistrationAgent.ClusterName),
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
-		hubhash, agentID,
+		hubhash,
+		agentID,
 		restMapper,
 		validator,
 	)
@@ -388,7 +394,8 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		spokeWorkClient.WorkV1().AppliedManifestWorks(),
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
 		o.AppliedManifestWorkEvictionGracePeriod,
-		hubhash, agentID,
+		hubhash,
+		agentID,
 	)
 
 	appliedManifestWorkController := appliedmanifestcontroller.NewAppliedManifestWorkController(
