@@ -110,6 +110,8 @@ type ServerRunOptions struct {
 
 	// EnableSelfManagement register the current cluster self as a managed cluster
 	EnableSelfManagement bool
+	// SelfManagementClusterName is the name of self management cluster, by default, it's local-cluster
+	SelfManagementClusterName string
 
 	// ClusterAutoApprovalUsers is a bootstrap user list whose cluster registration requests can be automatically approved
 	ClusterAutoApprovalUsers []string
@@ -230,6 +232,8 @@ func NewServerRunOptions() *ServerRunOptions {
 		ServiceClusterIPRanges: "10.0.0.0/24",
 
 		ControlplaneConfigDir: "/controlplane_config",
+
+		SelfManagementClusterName: "local-cluster",
 	}
 }
 
@@ -238,7 +242,9 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&options.ControlplaneConfigDir, "controlplane-config-dir", options.ControlplaneConfigDir,
 		"Path to the file directory contains minimum requried configurations for controlplane server.")
 	fs.BoolVar(&options.EnableSelfManagement, "self-management", options.EnableSelfManagement,
-		"Register the current controlplane as a managed cluster.")
+		"Register the current controlplane as a self managed cluster.")
+	fs.StringVar(&options.SelfManagementClusterName, "self-management-cluster-name", options.SelfManagementClusterName,
+		"Name of the self managed cluster name.")
 	fs.StringArrayVar(&options.ClusterAutoApprovalUsers, "cluster-auto-approval-users", options.ClusterAutoApprovalUsers,
 		"A bootstrap user list whose cluster registration requests can be automatically approved.")
 }
@@ -477,6 +483,9 @@ func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConf
 
 func (s *ServerRunOptions) Validate() error {
 	errs := []error{}
+	if s.EnableSelfManagement && len(s.SelfManagementClusterName) == 0 {
+		errs = append(errs, fmt.Errorf("the --self-management-cluster-name is required"))
+	}
 	errs = append(errs, s.Etcd.Validate()...)
 	errs = append(errs, s.SecureServing.Validate()...)
 	errs = append(errs, s.Authentication.Validate()...)
