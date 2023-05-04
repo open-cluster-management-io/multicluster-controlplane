@@ -39,10 +39,7 @@ func NewServer(options options.ServerRunOptions) *server {
 	s.AddController("multicluster-controlplane-crd", ocmcontroller.InstallCrd)
 	s.AddController("multicluster-controlplane-registration-resource", ocmcontroller.InstallHubResource)
 	s.AddController("multicluster-controlplane-controllers", ocmcontroller.InstallControllers(options.ClusterAutoApprovalUsers))
-
-	if options.EnableSelfManagement {
-		s.AddController("multicluster-controlplane-agents", ocmcontroller.InstallAgent(options.ControlplaneDataDir))
-	}
+	s.AddController("multicluster-controlplane-selfmanagement", ocmcontroller.InstallSelfManagementCluster(options))
 	return s
 }
 
