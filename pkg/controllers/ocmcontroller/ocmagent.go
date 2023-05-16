@@ -21,13 +21,15 @@ import (
 
 	"open-cluster-management.io/multicluster-controlplane/pkg/agent"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
 const SelfManagementClusterLabel = "multicluster-controlplane.open-cluster-management.io/selfmanagement"
 
 func InstallSelfManagementCluster(options options.ServerRunOptions) func(<-chan struct{}, *aggregatorapiserver.Config) error {
 	return func(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
-		if _, err := rest.InClusterConfig(); err != nil {
+		inClusterConfig, err := rest.InClusterConfig()
+		if err != nil {
 			klog.Warning("Current runtime environment is not in a cluster, ignore --self-management flag.")
 			return nil
 		}
@@ -41,7 +43,15 @@ func InstallSelfManagementCluster(options options.ServerRunOptions) func(<-chan 
 		hubRestConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
 		hubRestConfig.ContentType = "application/json"
 
-		go EnableSelfManagement(ctx, hubRestConfig, options.ControlplaneDataDir, options.SelfManagementClusterName)
+		clusterName := options.SelfManagementClusterName
+		if len(clusterName) == 0 {
+			clusterName, err = util.GenerateSelfManagedClusterName(ctx, inClusterConfig)
+			if err != nil {
+				return err
+			}
+		}
+
+		go EnableSelfManagement(ctx, hubRestConfig, options.ControlplaneDataDir, clusterName)
 
 		return nil
 	}

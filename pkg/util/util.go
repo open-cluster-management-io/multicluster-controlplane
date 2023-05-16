@@ -12,11 +12,14 @@ import (
 	"os"
 	"path/filepath"
 
-	routev1Client "github.com/openshift/client-go/route/clientset/versioned"
+	ocpconfigclientset "github.com/openshift/client-go/config/clientset/versioned"
+	ocprouteclientset "github.com/openshift/client-go/route/clientset/versioned"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -66,7 +69,7 @@ func GetExternalHost() (string, error) {
 		return "", err
 	}
 
-	ocpRouteClient, err := routev1Client.NewForConfig(config)
+	ocpRouteClient, err := ocprouteclientset.NewForConfig(config)
 	if err != nil {
 		return "", err
 	}
@@ -242,4 +245,35 @@ func GetComponentNamespace() string {
 		return defaultComponentNamespace
 	}
 	return string(nsBytes)
+}
+
+// GenerateSelfManagedClusterName generates an ID for the self management cluster.
+// If the worker manager addon is enabled, this ID will be same with `id.k8s.io` cluster claim.
+// We get ID by the sequence of: openshiftID, uid of kube-system namespace, random UID.
+func GenerateSelfManagedClusterName(ctx context.Context, inClusterConfig *rest.Config) (string, error) {
+	kubeClient, err := kubernetes.NewForConfig(inClusterConfig)
+	if err != nil {
+		return "", err
+	}
+
+	ocpConfigClient, err := ocpconfigclientset.NewForConfig(inClusterConfig)
+	if err != nil {
+		return "", err
+	}
+
+	ocpClusterVersion, err := ocpConfigClient.ConfigV1().ClusterVersions().Get(ctx, "version", metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		ns, err := kubeClient.CoreV1().Namespaces().Get(ctx, "kube-system", metav1.GetOptions{})
+		if err != nil {
+			return string(uuid.NewUUID()), nil
+		}
+
+		return string(ns.UID), nil
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(ocpClusterVersion.Spec.ClusterID), nil
 }

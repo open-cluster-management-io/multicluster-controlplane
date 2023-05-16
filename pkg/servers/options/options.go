@@ -232,8 +232,6 @@ func NewServerRunOptions() *ServerRunOptions {
 		ServiceClusterIPRanges: "10.0.0.0/24",
 
 		ControlplaneConfigDir: "/controlplane_config",
-
-		SelfManagementClusterName: "local-cluster",
 	}
 }
 
@@ -483,9 +481,6 @@ func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConf
 
 func (s *ServerRunOptions) Validate() error {
 	errs := []error{}
-	if s.EnableSelfManagement && len(s.SelfManagementClusterName) == 0 {
-		errs = append(errs, fmt.Errorf("the --self-management-cluster-name is required"))
-	}
 	errs = append(errs, s.Etcd.Validate()...)
 	errs = append(errs, s.SecureServing.Validate()...)
 	errs = append(errs, s.Authentication.Validate()...)
