@@ -19,35 +19,37 @@ import (
 	workv1 "open-cluster-management.io/api/work/v1"
 )
 
-const (
-	loopbackClusterName = "loopback"
-	localClusterName    = "local-cluster"
-)
+const loopbackClusterName = "loopback"
 
 var _ = ginkgo.Describe("Loopback registration and work management", func() {
 	ginkgo.Context("self management", func() {
-		ginkgo.It("should have a registered cluster local-cluster", func() {
-			ginkgo.By("Waiting the local-cluster becomes available", func() {
+		ginkgo.It("should be able to create a manifestwork in self management cluster", func() {
+			var localClusterName string
+			ginkgo.By("Waiting the self management becomes available", func() {
 				gomega.Expect(wait.Poll(1*time.Second, timeout, func() (bool, error) {
-					localCluster, err := hubClusterClient.ClusterV1().ManagedClusters().Get(context.TODO(), localClusterName, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return false, nil
-					}
+					clusters, err := hubClusterClient.ClusterV1().ManagedClusters().List(context.TODO(), metav1.ListOptions{
+						LabelSelector: "multicluster-controlplane.open-cluster-management.io/selfmanagement",
+					})
 
 					if err != nil {
 						return false, err
 					}
 
+					if len(clusters.Items) != 1 {
+						return false, nil
+					}
+
+					localCluster := clusters.Items[0]
+
 					if meta.IsStatusConditionTrue(localCluster.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
+						localClusterName = localCluster.Name
 						return true, nil
 					}
 
 					return false, nil
 				})).ToNot(gomega.HaveOccurred())
 			})
-		})
 
-		ginkgo.It("should be able to create a manifestwork in local-cluster", func() {
 			workName := fmt.Sprintf("local-cluster-%s", rand.String(6))
 			configMapName := fmt.Sprintf("local-cluster-cm-%s", rand.String(6))
 			createAndDeleteManifestwork(localClusterName, workName, configMapName)
