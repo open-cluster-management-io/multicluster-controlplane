@@ -277,3 +277,76 @@ func GenerateSelfManagedClusterName(ctx context.Context, inClusterConfig *rest.C
 
 	return string(ocpClusterVersion.Spec.ClusterID), nil
 }
+
+func GoContext(stopCh <-chan struct{}) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func(done <-chan struct{}) {
+		<-done
+		cancel()
+	}(stopCh)
+	return ctx
+}
+
+func LoadServingSigner(signerPath string) (bool, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		// the controlplane is not running at a cluster, ignore
+		return false, nil
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return false, err
+	}
+
+	// try to load the ca from ocp env
+	// TODO investage other platforms, like eks, aks, gcp etc.
+	ns := "openshift-kube-apiserver-operator"
+	name := "loadbalancer-serving-signer"
+	secret, err := kubeClient.CoreV1().Secrets(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	switch {
+	case errors.IsNotFound(err):
+		// the serving signer is not found, ignore
+		return false, nil
+	case err != nil:
+		return false, err
+	}
+
+	// ensure parent dir
+	if err := os.MkdirAll(signerPath, os.FileMode(0755)); err != nil {
+		return false, err
+	}
+
+	certBlock, existing := secret.Data["tls.crt"]
+	if !existing {
+		return false, fmt.Errorf("there is no `tls.crt` in %s/%s", ns, name)
+	}
+
+	keyBlock, existing := secret.Data["tls.key"]
+	if !existing {
+		return false, fmt.Errorf("there is no `tls.key` in %s/%s", ns, name)
+	}
+
+	certFileWriter, err := os.OpenFile(filepath.Join(signerPath, "ca.crt"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return false, err
+	}
+	defer certFileWriter.Close()
+
+	keyFileWriter, err := os.OpenFile(filepath.Join(signerPath, "ca.key"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return false, err
+	}
+	defer keyFileWriter.Close()
+
+	if _, err := certFileWriter.Write(certBlock); err != nil {
+		return false, err
+	}
+
+	if _, err := keyFileWriter.Write(keyBlock); err != nil {
+		return false, err
+	}
+
+	klog.Infof("Load server ca from %s/%s to %s", ns, name, signerPath)
+	return true, nil
+}

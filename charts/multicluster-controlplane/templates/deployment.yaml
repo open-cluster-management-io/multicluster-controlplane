@@ -32,6 +32,9 @@ spec:
         {{- if eq .Values.enableSelfManagement true }}
         - "--self-management"
         {{- end }}
+        {{- if eq .Values.enableDelegatingAuthentication true }}
+        - "--delegating-authentication"
+        {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -39,6 +42,8 @@ spec:
               - ALL
           privileged: false
           runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         livenessProbe:
           httpGet:
             path: /livez

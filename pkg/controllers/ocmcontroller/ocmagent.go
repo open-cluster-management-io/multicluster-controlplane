@@ -39,7 +39,7 @@ func InstallSelfManagementCluster(options options.ServerRunOptions) func(<-chan 
 			return nil
 		}
 
-		ctx := GoContext(stopCh)
+		ctx := util.GoContext(stopCh)
 		hubRestConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
 		hubRestConfig.ContentType = "application/json"
 

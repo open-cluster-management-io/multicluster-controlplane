@@ -59,7 +59,7 @@ func InstallControllers(clusterAutoApprovalUsers []string) func(<-chan struct{},
 				klog.Fatalf("failed to create dynamic client: %v", err)
 			}
 
-			ctx := GoContext(stopCh)
+			ctx := util.GoContext(stopCh)
 
 			if ocmcrds.WaitForOcmCrdReady(ctx, dynamicClient) {
 				klog.Infof("ocm crd is ready!")
