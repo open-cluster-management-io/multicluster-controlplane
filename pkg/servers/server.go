@@ -14,6 +14,7 @@ import (
 	"open-cluster-management.io/multicluster-controlplane/pkg/controllers"
 	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/ocmcontroller"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
 type Server interface {
@@ -36,10 +37,17 @@ func NewServer(options options.ServerRunOptions) *server {
 		aggregatorConfig: aggregatorConfig,
 	}
 
-	s.AddController("multicluster-controlplane-crd", ocmcontroller.InstallCrd)
+	s.AddController("multicluster-controlplane-crd", ocmcontroller.InstallCRD)
 	s.AddController("multicluster-controlplane-registration-resource", ocmcontroller.InstallHubResource)
 	s.AddController("multicluster-controlplane-controllers", ocmcontroller.InstallControllers(options.ClusterAutoApprovalUsers))
 	s.AddController("multicluster-controlplane-selfmanagement", ocmcontroller.InstallSelfManagementCluster(options))
+	if options.Authentication.DelegatingAuthenticatorConfig != nil {
+		s.AddController("multicluster-controlplane-authentication-delegator",
+			func(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
+				options.Authentication.DelegatingAuthenticatorConfig.Start(util.GoContext(stopCh))
+				return nil
+			})
+	}
 	return s
 }
 

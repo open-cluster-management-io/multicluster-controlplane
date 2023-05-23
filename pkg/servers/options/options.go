@@ -115,6 +115,9 @@ type ServerRunOptions struct {
 
 	// ClusterAutoApprovalUsers is a bootstrap user list whose cluster registration requests can be automatically approved
 	ClusterAutoApprovalUsers []string
+
+	// EnableDelegatingAuthentication delegate the authentication with controlplane hosing cluster
+	EnableDelegatingAuthentication bool
 }
 
 type ExtraOptions struct {
@@ -245,6 +248,8 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 		"Name of the self managed cluster name.")
 	fs.StringArrayVar(&options.ClusterAutoApprovalUsers, "cluster-auto-approval-users", options.ClusterAutoApprovalUsers,
 		"A bootstrap user list whose cluster registration requests can be automatically approved.")
+	fs.BoolVar(&options.EnableDelegatingAuthentication, "delegating-authentication", options.EnableDelegatingAuthentication,
+		"Delegate authentication to the controlplane hosting cluster.")
 }
 
 // Complete set default Options.
@@ -323,6 +328,15 @@ func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
 			}
 		}
 		klog.Infof("external host was not specified, using %v", s.GenericServerRunOptions.ExternalHost)
+	}
+
+	if s.EnableDelegatingAuthentication {
+		s.Authentication.DelegatingAuthenticatorConfig = &DelegatingAuthenticatorConfig{
+			// very low for responsiveness, but high enough to handle storms
+			CacheTTL:                 10 * time.Second,
+			WebhookRetryBackoff:      genericoptions.DefaultAuthWebhookRetryBackoff(),
+			TokenAccessReviewTimeout: 10 * time.Second,
+		}
 	}
 
 	// authorization

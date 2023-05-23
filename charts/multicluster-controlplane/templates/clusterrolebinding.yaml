@@ -1,14 +1,12 @@
-{{ if eq .Values.enableSelfManagement true }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: open-cluster-management:multicluster-controlplane
+  name: open-cluster-management:multicluster-controlplane:{{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: open-cluster-management:multicluster-controlplane:agent
+  name: open-cluster-management:multicluster-controlplane:{{ .Release.Namespace }}
 subjects:
 - kind: ServiceAccount
   name: multicluster-controlplane-sa
   namespace: {{ .Release.Namespace }}
-{{ end }}

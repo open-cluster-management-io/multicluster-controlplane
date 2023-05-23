@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -213,6 +214,37 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 	} else {
 		klog.Errorf("failed to get namespace %s: %w", metav1.NamespaceSystem, err)
 		// nolint:nilerr
+	}
+
+	// allow user `kube:admin` access the controlplane as cluster admin
+	if err := wait.PollInfinite(1*time.Second, func() (bool, error) {
+		_, err := kubeClient.RbacV1().ClusterRoleBindings().Create(
+			ctx,
+			&rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kube-admin",
+				},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "ClusterRole",
+					Name:     "cluster-admin",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						APIGroup: "rbac.authorization.k8s.io",
+						Kind:     "User",
+						Name:     "kube:admin",
+					},
+				},
+			},
+			metav1.CreateOptions{},
+		)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}); err != nil {
+		klog.Errorf("failed to create clusterrolebinding for 'kube:admin': %w", err)
 	}
 
 	return bootstrap(ctx, discoveryClient, dynamicClient)

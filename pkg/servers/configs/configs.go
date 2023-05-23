@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"
@@ -15,6 +16,7 @@ const DefaultAPIServerPort = 9443
 
 const (
 	defaultControlPlaneDataDir = "/.ocm"
+	defaultControlPlaneCADir   = "/.ocm/cert/controlplane-ca"
 	defaultETCDMode            = "embed"
 	defaultETCDPrefix          = "/registry"
 )
@@ -70,12 +72,25 @@ func LoadConfig(configDir string) (*ControlplaneRunConfig, error) {
 	}
 
 	if c.Apiserver.ExternalHostname == "" {
-		klog.Warningf("The external host name unspecified, trying to find it from runtime environment ...")
+		klog.Infof("The external host name unspecified, trying to find it from runtime environment ...")
 		hostname, err := util.GetExternalHost()
 		if err != nil {
 			return nil, fmt.Errorf("failed to find external host name from runtime environment, %v", err)
 		}
 		c.Apiserver.ExternalHostname = hostname
+	}
+
+	if !c.IsCAProvided() {
+		klog.Infof("The server ca unspecified, trying to find it from runtime environment ...")
+		loaded, err := util.LoadServingSigner(defaultControlPlaneCADir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load server ca from runtime enviroment, %v", err)
+		}
+
+		if loaded {
+			c.Apiserver.CAFile = filepath.Join(defaultControlPlaneCADir, "ca.crt")
+			c.Apiserver.CAKeyFile = filepath.Join(defaultControlPlaneCADir, "ca.key")
+		}
 	}
 
 	return c, nil

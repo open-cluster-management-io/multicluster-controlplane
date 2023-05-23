@@ -9,6 +9,7 @@ import (
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 
 	ocmhubresource "open-cluster-management.io/multicluster-controlplane/config/hub"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
 func InstallHubResource(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
@@ -27,7 +28,7 @@ func InstallHubResource(stopCh <-chan struct{}, aggregatorConfig *aggregatorapis
 	}
 	// bootstrap ocm hub resources
 	if err := ocmhubresource.Bootstrap(
-		GoContext(stopCh),
+		util.GoContext(stopCh),
 		aggregatorConfig.GenericConfig.Config,
 		apiextensionsClient.Discovery(),
 		dynamicClient,
