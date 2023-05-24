@@ -93,7 +93,6 @@ $ kubectl -n ${HUB_NAME} get secret multicluster-controlplane-kubeconfig -ojsonp
 #### config the chart
 > Click [here](https://github.com/open-cluster-management-io/multicluster-controlplane/blob/main/charts/multicluster-controlplane/values.yaml) to see available config values.
 
-
 - If you want to provide your own ca pairs for controlplane, set the following arguements:
   ```
   helm install xxxx --set-file apiserver.ca="<path-to-ca>",apiserver.cakey="<path-to-ca-key>"
@@ -105,9 +104,13 @@ $ kubectl -n ${HUB_NAME} get secret multicluster-controlplane-kubeconfig -ojsonp
 - If you want to exposing the service:
   - While installing to OpenShift cluster, `.Values.route` should be set
 
-  - While installing to EKS cluster, `.Values.loadbalancer` shoule be set
+  - While installing to EKS cluster, `.Values.loadbalancer` should be set
 
-  - While installing to KinD cluster, `.Values.nodeport` shoube be set
+  - While installing to KinD cluster, `.Values.nodeport` should be set
+
+- If you want to enable the self management, `.Values.enableSelfManagement` should be set to `true`
+
+- If you want to delegate the authentication with kube-apiserver, `.Values.enableDelegatingAuthentication` should be set to `true`
 
 ### Option 2: Run controlplane as a local binary
 
@@ -119,7 +122,25 @@ $ make run
 
 ## Access the controlplane
 
-The kubeconfig file of the controlplane is in the dir `hack/deploy/cert-${HUB_NAME}/kubeconfig`.
+- If you run the controlplane as a binary, the controlplane kubeconfig file is in `_output/controlplane/.ocm/cert/kube-aggregator.kubeconfig`
+
+- If you deploy the controlplane in a cluster, run the following command to get the controlplane kubeconfig
+
+  ```bash
+  kubectl -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig -ojsonpath='{.data.kubeconfig}' | base64 -d > multicluster-controlplane.kubeconfig
+  ```
+
+  If you enable the authentication delegating, you can set a context for your controlplane in your cluster kubeconfig with the following commands
+
+  ```bash
+  external_hostn_ame=<your controplane external host name>
+  # if you want to add the ca of your cluster kube-apiserver, using the command:
+  # kubectl config set-cluster multicluster-controlplane --server="https://${external_host_name}" --embed-certs --certificate-authority=<the ca path of your cluster kube-apiserver>
+  kubectl config set-cluster multicluster-controlplane --server="https://${external_host_name}" --insecure-skip-tls-verify
+  kubectl config set-context multicluster-controlplane --cluster=multicluster-controlplane --user=kube:admin --namespace=default
+  ```
+
+## Join a cluster
 
 You can use clusteradm to access and join a cluster.
 ```bash
