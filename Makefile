@@ -33,7 +33,7 @@ verify: verify-gocilint
 all: clean vendor build run
 .PHONY: all
 
-run:
+run: vendor build
 	hack/start-multicluster-controlplane.sh
 .PHONY: run
 
