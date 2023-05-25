@@ -1,86 +1,67 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-KUBE_ROOT=$(pwd)
-KUBECTL=${KUBECTL:-"kubectl"}
-KUSTOMIZE=${KUSTOMIZE:-"kustomize"}
-CFSSL=${CFSSL:-"cfssl"}
-CFSSLJSON=${CFSSLJSON:-"cfssljson"}
-CFSSL_DIR=${CFSSL_DIR:-"${KUBE_ROOT}/multicluster_ca"}
+REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/.." ; pwd -P)"
 
-if ! command -v $KUBECTL >/dev/null 2>&1; then
-  echo "Command $KUBECTL is not found"
-  exit 1
+set -o nounset
+set -o pipefail
+set -o errexit
+
+source ${REPO_DIR}/hack/lib/deps.sh
+
+check_kubectl
+check_kustomize
+check_cfssl
+
+SED=sed
+if [ "$(uname)" = 'Darwin' ]; then
+  # run `brew install gnu-${SED}` to install gsed
+  SED=gsed
 fi
 
-if ! command -v $KUSTOMIZE >/dev/null 2>&1; then
-  echo "Command $KUSTOMIZE is not found"
-  exit 1
-fi
-
-export ETCD_NS=${ETCD_NS:-"multicluster-controlplane-etcd"}
-
+ETCD_NS=${ETCD_NS:-"multicluster-controlplane-etcd"}
 ETCD_IMAGE_NAME=${ETCD_IMAGE_NAME:-"quay.io/coreos/etcd"}
 REUSE_CA=${REUSE_CA:-false}
+STORAGE_CLASS_NAME=${STORAGE_CLASS_NAME:-""}
 
-if [[ "${REUSE_CA}" != true ]]; then
-    if ! command -v go >/dev/null 2>&1; then
-        echo "Command go is not found"
-        exit 1
-    fi
+deploy_dir=${REPO_DIR}/_output/etcd/deploy
+cert_dir=${deploy_dir}/cert-etcd
 
-    if ! command -v $CFSSL >/dev/null 2>&1; then
-        echo "Command $CFSSL is not found, installing..."
-        go install github.com/cloudflare/cfssl/cmd/cfssl@latest
-        CFSSL="$(go env GOPATH)/bin/cfssl"
-    fi
+echo "Deploy etcd on the namespace ${ETCD_NS} in the cluster ${KUBECONFIG}"
+mkdir -p ${cert_dir}
+cp -r ${REPO_DIR}/hack/deploy/etcd/* $deploy_dir
 
-    if ! command -v $CFSSLJSON >/dev/null 2>&1; then
-        echo "Command $CFSSLJSON is not found, installing..."
-        go install github.com/cloudflare/cfssl/cmd/cfssljson@latest
-        CFSSLJSON="$(go env GOPATH)/bin/cfssljson"
-    fi
+kubectl delete ns ${ETCD_NS} --ignore-not-found
+kubectl create ns ${ETCD_NS}
 
-    mkdir -p ${CFSSL_DIR}
-    cd ${CFSSL_DIR}
-
-    echo '{"CN":"multicluster-controlplane","key":{"algo":"rsa","size":2048}}' | $CFSSL gencert -initca - | $CFSSLJSON -bare ca -
+if [ "${REUSE_CA}" != true ]; then
+    pushd $cert_dir
+    echo '{"CN":"multicluster-controlplane","key":{"algo":"rsa","size":2048}}' | cfssl gencert -initca - | cfssljson -bare ca -
     echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","server auth","client auth"]}}}' > ca-config.json
-
-    export ADDRESS=
-    export NAME=client
-    echo '{"CN":"'$NAME'","hosts":[""],"key":{"algo":"rsa","size":2048}}' | $CFSSL gencert -config=ca-config.json -ca=ca.pem -ca-key=ca-key.pem -hostname="$ADDRESS" - | $CFSSLJSON -bare $NAME
-
-    cd ${KUBE_ROOT}
-    # copy ca to etcd dir
-    mkdir -p ${KUBE_ROOT}/hack/deploy/etcd/cert-etcd
-    cp -f ${CFSSL_DIR}/ca.pem ${KUBE_ROOT}/hack/deploy/etcd/cert-etcd/ca.pem
+    echo '{"CN":"'client'","hosts":[""],"key":{"algo":"rsa","size":2048}}' | cfssl gencert -config=ca-config.json -ca=ca.pem -ca-key=ca-key.pem -hostname="" - | cfssljson -bare client
+    popd
 fi
 
-cp ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml  ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml.tmp
-cd ${KUBE_ROOT}/hack/deploy/etcd && ${KUSTOMIZE} edit set namespace ${ETCD_NS} && ${KUSTOMIZE} edit set image quay.io/coreos/etcd=${ETCD_IMAGE_NAME}
-cd ../../../
-${KUSTOMIZE} build ${KUBE_ROOT}/hack/deploy/etcd | ${KUBECTL} apply -f -
-mv ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml.tmp ${KUBE_ROOT}/hack/deploy/etcd/kustomization.yaml
+if [ "$STORAGE_CLASS_NAME" != "gp2" ]; then
+  ${SED} -i "s/gp2/${STORAGE_CLASS_NAME}/g" $deploy_dir/statefulset.yaml
+fi
 
-function check_multicluster-etcd {
-    for i in {1..50}; do
-        echo "Checking multicluster-etcd..."
-        RESULT=$(${KUBECTL} -n ${ETCD_NS} exec etcd-0 -- etcdctl cluster-health | tail -n1)
-        if [[ "${RESULT}" = "cluster is healthy" ]]; then
-            echo "#### multicluster-etcd ${ETCD_NS} is ready ####"
-            break
-        fi
-        
-        if [ $i -eq 90 ]; then
-            echo "!!!!!!!!!!  the multicluster-etcd ${ETCD_NS} is not ready within 180s"
-            ${KUBECTL} -n ${ETCD_NS} get pods
-            
-            exit 1
-        fi
-        sleep 2
-    done
-}
-check_multicluster-etcd
+pushd $deploy_dir
+kustomize edit set namespace ${ETCD_NS}
+kustomize edit set image quay.io/coreos/etcd=${ETCD_IMAGE_NAME}
+popd
 
-echo "#### etcd deployed ####" 
-echo ""
+kustomize build ${deploy_dir} | kubectl apply -f -
+
+wait_seconds="60"; until [[ $((wait_seconds--)) -eq 0 ]] || eval "kubectl -n ${ETCD_NS} get pod etcd-0 &> /dev/null" ; do sleep 1; done
+kubectl -n ${ETCD_NS} wait pod/etcd-0 --for condition=Ready --timeout=180s
+
+wait_seconds="60"; until [[ $((wait_seconds--)) -eq 0 ]] || eval "kubectl -n ${ETCD_NS} get pod etcd-1 &> /dev/null" ; do sleep 1; done
+kubectl -n ${ETCD_NS} wait pod/etcd-1 --for condition=Ready --timeout=180s
+
+wait_seconds="60"; until [[ $((wait_seconds--)) -eq 0 ]] || eval "kubectl -n ${ETCD_NS} get pod etcd-2 &> /dev/null" ; do sleep 1; done
+kubectl -n ${ETCD_NS} wait pod/etcd-2 --for condition=Ready --timeout=180s
+
+echo "wait for etcd health (timeout=180s) ..."
+wait_seconds="180"; until [[ $((wait_seconds--)) -eq 0 ]] || eval "kubectl -n ${ETCD_NS} exec etcd-0 -- etcdctl cluster-health &> /dev/null" ; do sleep 1; done
+
+echo "etcd is health"
