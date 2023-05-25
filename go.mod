@@ -25,10 +25,10 @@ require (
 	k8s.io/kubernetes v1.26.3
 	k8s.io/metrics v0.26.1
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
-	open-cluster-management.io/api v0.10.1-0.20230310025041-ca0770573954
-	open-cluster-management.io/placement v0.10.0
-	open-cluster-management.io/registration v0.10.1-0.20230419032057-69e686faa191
-	open-cluster-management.io/work v0.10.1-0.20230314090112-ee923cd5f632
+	open-cluster-management.io/api v0.11.0
+	open-cluster-management.io/placement v0.11.0
+	open-cluster-management.io/registration v0.11.0
+	open-cluster-management.io/work v0.11.0
 	sigs.k8s.io/controller-runtime v0.14.5
 )
 
