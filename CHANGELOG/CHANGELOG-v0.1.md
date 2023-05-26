@@ -4,18 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## v0.1.0
 
-### New Features 
+### New Features
 * Support to deploy multicluster-controlplane as a deployment on openshift cluster.
 * Support to run multicluster-controlplane as a binary with embed/external etcd.
 
 ### Added
-    N/C
+N/C
 
 ### Changes
-    N/C
+N/C
 
 ### Bug Fixes
-    N/C
+N/C
 
 ### Removed & Deprecated
-    N/C
+N/C
