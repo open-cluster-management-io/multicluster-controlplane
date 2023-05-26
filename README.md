@@ -1,10 +1,35 @@
 [comment]: # ( Copyright Contributors to the Open Cluster Management project )
 # Get started 
 
-## Config file
-By default, the multicluster controlplane would try to find ocmconfig.yaml in the current directory. You can use the customized one by setting the flag --config-file=<config-file.yaml>.
+## Build
 
-Here is a simple file of config-file.yaml:
+### Build binary
+
+```bash
+make vendor
+make build
+```
+
+### Build image
+
+```bash
+export IMAGE_NAME=<customized image. default is quay.io/open-cluster-management/multicluster-controlplane:latest>
+make image
+```
+
+## Run controlplane as a local binary
+
+```bash
+export CONFIG_DIR=<the directory of the controlplane configuration file. default is ./_output/controlplane>
+make run
+```
+
+You can customize the controlplane configurations by creating a config file and using the environment variable `CONFIG_DIR` to specify your config file directory.
+
+**NOTE**: the controlplane config file name must be `ocmconfig.yaml`
+
+Here is a sample file of `ocmconfig.yaml`:
+
 ```yaml
 dataDirectory: "/.ocm"
 apiserver:
@@ -41,83 +66,83 @@ Field `etcd` contains config for the controlplane etcd:
 - `certFile` is a string variable indicating a client cert file signed by `caFile`.
 - `keyFile` is a string variable indicating client key file for `certFile`.
 
-> **NOTE:**
-> For `apiserver` field: If you want to use your own CA pair to sign the certificates, the `caFile` and `caKeyFile` should be set together. Which means that if one of the two fields is missed/empty, the controlplane would self-generate CA pair to sign the necessary certificates. 
+**NOTE**: For `apiserver` field: If you want to use your own CA pair to sign the certificates, the `caFile` and `caKeyFile` should be set together. Which means that if one of the two fields is missed/empty, the controlplane would self-generate CA pair to sign the necessary certificates. 
 
+## Use helm to deploy controlplane in a cluster
 
-## Optional: Deploy etcd on Cluster 
+1. Set the environment variable KUBECONFIG to your cluster kubeconfig path
 
-#### Install etcd
-Set environment variables and deploy etcd.
-* `ETCD_NS` (optional) is the namespace where the etcd is deployed in. The default is `multicluster-controlplane-etcd`.
+  ```bash
+  export KUBECONFIG=<the kubeconfig path of your cluster>
+  ```
 
-For example:
+2. (Optional) By default, the controlplane will have an embedded etcd, you can use the following command to deploy an external etcd
+
+  ```bash
+  make deploy-etcd
+  ```
+
+  This external etcd will be deployed in the namespace `multicluster-controlplane-etcd`, its certificates will be created at `./_output/etcd/deploy/cert-etcd` and its service urls will be: `http://etcd-0.etcd.multicluster-controlplane-etcd:2379`, `http://etcd-1.etcd.multicluster-controlplane-etcd:2379`, and `http://etcd-2.etcd.multicluster-controlplane-etcd:2379`
+
+3. Run following command to deploy a controlplane
+
+  ```bash
+  helm repo add ocm https://openclustermanagement.blob.core.windows.net/releases/
+  helm repo update
+  helm search repo ocm
+  helm install -n multicluster-controlplane multicluster-controlplane ocm/multicluster-controlplane --create-namespace --set <values to set>
+  ```
+
+  - To provide your own ca pairs for controlplane with the following arguements:
+
+    ```bash
+    --set-file apiserver.ca="<path-to-ca>",apiserver.cakey="<path-to-ca-key>"
+    ```
+
+  - To use external etcd with the following arguements:
+
+      ```bash
+      --set-file etcd.ca="<path-to-etcd-ca>",etcd.cert="<path-to-etcd-client-cert>",etcd.certkey="<path-to-etcd-client-cert-key>"
+      --set etcd.mode="external",etcd.servers={server1, server2, ...}
+      ```
+
+  - To use the OpenShift route with the following arguements:
+
+      ```bash
+      --set route.enabled=true
+      ```
+
+  - To use the load balance service with the following arguements:
+
+      ```bash
+      --set loadbalancer.enabled=true
+      ```
+
+  - To use the node port serive with the following arguements:
+
+      ```bash
+      --set nodeport.enabled=true
+      --set nodeport.port=<your-node-port>
+      ```
+
+  - To enable the self management with the following arguements:
+
+      ```bash
+      --set enableSelfManagement=true
+      ```
+
+  - To delegate the authentication with kube-apiserver with the following arguements:
+
+      ```bash
+      --set enableDelegatingAuthentication=true
+      ```
+
+  More available config values can be found from [here](https://github.com/open-cluster-management-io/multicluster-controlplane/blob/main/charts/multicluster-controlplane/values.yaml).
+
+### Uninstall the controlplane
+
 ```bash
-$ export ETCD_NS=<etcd namespace>
-$ make deploy-etcd
-```
-
-## Install multicluster-controlplane
-Before start the controlplane, we should make sure config file is in path.
-
-### Option 1: Install multicluster-controlplane on a cluster
-
-#### Build image
-
-```bash
-$ export IMAGE_NAME=<customized image. default is quay.io/open-cluster-management/multicluster-controlplane:latest>
-$ make image
-```
-
-#### Use helm to install controlplane
-
-First, add ocm repo to helm
-```
-$ helm repo add ocm https://openclustermanagement.blob.core.windows.net/releases/
-$ helm repo update
-$ helm search repo ocm
-```
-
-```
-$ export HUB_NAME=<hub name>
-$ export IMAGE_NAME=<your image>
-$ kubectl create ns ${HUB_NAME}
-$ helm install -n ${HUB_NAME} ocm/multicluster-controlplane --generate-name --set <values to set>
-```
-
-After the chart is available, a secret named `multicluster-controlplane-kubeconfig` is created in namespace `HUB_NAME`, use kubeconfig to extract the kubeconfig file:
-```
-$ kubectl -n ${HUB_NAME} get secret multicluster-controlplane-kubeconfig -ojsonpath='{.data.kubeconfig}' | base64 -d > ${HUB_NAME}.kubeconfig
-```
-
-#### config the chart
-> Click [here](https://github.com/open-cluster-management-io/multicluster-controlplane/blob/main/charts/multicluster-controlplane/values.yaml) to see available config values.
-
-- If you want to provide your own ca pairs for controlplane, set the following arguements:
-  ```
-  helm install xxxx --set-file apiserver.ca="<path-to-ca>",apiserver.cakey="<path-to-ca-key>"
-  ```
-- If you want to use external etcd, set the following arguements:
-  ```
-  helm install xxxx --set etcd.mode="external",etcd.servers={server1, server2, ...} --set-file etcd.ca="<path-to-etcd-ca>",etcd.cert="<path-to-etcd-client-cert>",etcd.certkey="<path-to-etcd-client-cert-key>"
-  ```
-- If you want to exposing the service:
-  - While installing to OpenShift cluster, `.Values.route` should be set
-
-  - While installing to EKS cluster, `.Values.loadbalancer` should be set
-
-  - While installing to KinD cluster, `.Values.nodeport` should be set
-
-- If you want to enable the self management, `.Values.enableSelfManagement` should be set to `true`
-
-- If you want to delegate the authentication with kube-apiserver, `.Values.enableDelegatingAuthentication` should be set to `true`
-
-### Option 2: Run controlplane as a local binary
-
-```bash
-$ make vendor
-$ make build
-$ make run 
+helm uninstall -n multicluster-controlplane multicluster-controlplane
 ```
 
 ## Access the controlplane
@@ -133,7 +158,7 @@ $ make run
   If you enable the authentication delegating, you can set a context for your controlplane in your cluster kubeconfig with the following commands
 
   ```bash
-  external_hostn_ame=<your controplane external host name>
+  external_host_name=<your controplane external host name>
   # if you want to add the ca of your cluster kube-apiserver, using the command:
   # kubectl config set-cluster multicluster-controlplane --server="https://${external_host_name}" --embed-certs --certificate-authority=<the ca path of your cluster kube-apiserver>
   kubectl config set-cluster multicluster-controlplane --server="https://${external_host_name}" --insecure-skip-tls-verify
@@ -143,35 +168,12 @@ $ make run
 ## Join a cluster
 
 You can use clusteradm to access and join a cluster.
-```bash
-$ clusteradm --kubeconfig=<kubeconfig file> get token --use-bootstrap-token
-$ clusteradm join --hub-token <hub token> --hub-apiserver <hub apiserver> --cluster-name <cluster_name>
-$ clusteradm --kubeconfig=<kubeconfig file> accept --clusters <cluster_name>
-```
-
-> **Warning**
-> clusteradm version should be v0.4.1 or later
-
-
-## Install add-on
-
-Currently we support to install work-manager and managed-serviceaccount add-on on the controlplane.
 
 ```bash
-$ make deploy-work-manager-addon
-$ make deploy-managed-serviceaccount-addon
+clusteradm --kubeconfig=<controlplane kubeconfig file> get token --use-bootstrap-token
+clusteradm join --hub-token <controlplane token> --hub-apiserver <controlplane apiserver> --cluster-name <cluster name>
+clusteradm --kubeconfig=<controlplane kubeconfig file> accept --clusters <cluster name>
 ```
 
-## Clean up the deploy
+**Note**: clusteradm version should be v0.4.1 or later
 
-```bash
-$ make destory
-```
-
-## Install the multicluster-controlplane and add-ons
-
-```bash
-$ export HUB_NAME=<hub name>
-$ export IMAGE_NAME=<your image>
-$ make deploy-all
-```
