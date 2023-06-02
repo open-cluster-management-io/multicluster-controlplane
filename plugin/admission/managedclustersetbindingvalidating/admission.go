@@ -56,7 +56,7 @@ func NewPlugin() *Plugin {
 }
 
 func (p *Plugin) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	v := generic.VersionedAttributes{
+	v := admission.VersionedAttributes{
 		Attributes:         a,
 		VersionedOldObject: a.GetOldObject(),
 		VersionedObject:    a.GetObject(),
