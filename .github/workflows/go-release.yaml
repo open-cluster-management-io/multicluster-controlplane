@@ -35,7 +35,7 @@ jobs:
           echo "TRIMED_RELEASE_VERSION=${RELEASE_VERSION#v}" >> $GITHUB_ENV
       - name: verify chart version 
         run: |
-          cat ./charts/multicluster-controlplane/Chart.yaml | grep -q 'varsion: ${{ env.TRIMED_RELEASE_VERSION }}'
+          cat ./charts/multicluster-controlplane/Chart.yaml | grep -q 'version: ${{ env.TRIMED_RELEASE_VERSION }}'
     outputs:
       MAJOR_RELEASE_VERSION: ${{ env.MAJOR_RELEASE_VERSION }}
       RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
@@ -117,41 +117,6 @@ jobs:
         with:
           body_path: /home/runner/work/changelog.txt
 
-  release-binary:
-    name: Release Binary
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.20
-      - name: generate changelog
-        run: |
-          echo "# Controlplane ${{ needs.env.outputs.RELEASE_VERSION }}" > /home/runner/work/changelog.txt
-          echo "- See the [CHANGELOG](https://github.com/open-cluster-management-io/multicluster-controlplane/CHANGELOG/CHANGELOG-${{ needs.env.outputs.MAJOR_RELEASE_VERSION }}.md) for more details." >> /home/runner/work/changelog.txt
-          echo "- The released image is quay.io/open-cluster-management/multicluster-controlplane:${{ needs.env.outputs.RELEASE_VERSION }}" >> /home/runner/work/changelog.txt
-      - name: Build binaries
-        run: |
-          make vendor && make build-bin-release
-      - name: Release
-        uses: softprops/action-gh-release@v0.1.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          body_path: /home/runner/work/changelog.txt
-          files: |
-            bin/multicluster_controlplane_darwin_amd64.tar.gz
-            bin/multicluster_controlplane_darwin_arm64.tar.gz
-            bin/multicluster_controlplane_linux_amd64.tar.gz
-            bin/multicluster_controlplane_linux_arm64.tar.gz
-            bin/multicluster_controlplane_linux_ppc64le.tar.gz
-            bin/multicluster_controlplane_linux_s390x.tar.gz
-            bin/multicluster_controlplane_windows_amd64.zip
-          draft: false
-          prerelease: false
-
   release-chart:
     name: Release Chart
     runs-on: ubuntu-latest
@@ -199,3 +164,41 @@ jobs:
               console.error(error);
               core.setFailed(error);
             }
+
+  release-binary:
+    name: Release Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          path: go/src/open-cluster-management.io/multicluster-controlplane
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: generate changelog
+        run: |
+          echo "# Controlplane ${{ needs.env.outputs.RELEASE_VERSION }}" > /home/runner/work/changelog.txt
+          echo "- See the [CHANGELOG](https://github.com/open-cluster-management-io/multicluster-controlplane/blob/main/CHANGELOG/CHANGELOG-${{ needs.env.outputs.MAJOR_RELEASE_VERSION }}.md) for more details." >> /home/runner/work/changelog.txt
+          echo "- The released image is quay.io/open-cluster-management/multicluster-controlplane:${{ needs.env.outputs.RELEASE_VERSION }}" >> /home/runner/work/changelog.txt
+      - name: Build binaries
+        run: |
+          make vendor && make build-bin-release
+      - name: Release
+        uses: softprops/action-gh-release@v0.1.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          body_path: /home/runner/work/changelog.txt
+          files: |
+            bin/multicluster_controlplane_darwin_amd64.tar.gz
+            bin/multicluster_controlplane_darwin_arm64.tar.gz
+            bin/multicluster_controlplane_linux_amd64.tar.gz
+            bin/multicluster_controlplane_linux_arm64.tar.gz
+            bin/multicluster_controlplane_linux_ppc64le.tar.gz
+            bin/multicluster_controlplane_linux_s390x.tar.gz
+            bin/multicluster_controlplane_windows_amd64.zip
+          draft: false
+          prerelease: false
