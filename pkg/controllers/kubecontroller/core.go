@@ -38,6 +38,7 @@ func startModifiedNamespaceController(ctx context.Context, controllerContext Con
 	discoverResourcesFn := namespaceKubeClient.Discovery().ServerPreferredNamespacedResources
 
 	namespaceController := namespacecontroller.NewNamespaceController(
+		ctx,
 		namespaceKubeClient,
 		metadataClient,
 		discoverResourcesFn,
@@ -45,7 +46,7 @@ func startModifiedNamespaceController(ctx context.Context, controllerContext Con
 		controllerContext.ComponentConfig.NamespaceController.NamespaceSyncPeriod.Duration,
 		v1.FinalizerKubernetes,
 	)
-	go namespaceController.Run(int(controllerContext.ComponentConfig.NamespaceController.ConcurrentNamespaceSyncs), ctx.Done())
+	go namespaceController.Run(ctx, int(controllerContext.ComponentConfig.NamespaceController.ConcurrentNamespaceSyncs))
 
 	return nil, true, nil
 }
@@ -103,7 +104,7 @@ func startGarbageCollectorController(ctx context.Context, controllerContext Cont
 
 	// Periodically refresh the RESTMapper with new discovery information and sync
 	// the garbage collector.
-	go garbageCollector.Sync(discoveryClient, 30*time.Second, ctx.Done())
+	go garbageCollector.Sync(ctx, discoveryClient, 30*time.Second)
 
 	return garbageCollector, true, nil
 }

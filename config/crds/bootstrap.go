@@ -63,7 +63,7 @@ func WaitForOcmCrdReady(ctx context.Context, dynamicClient dynamic.Interface) bo
 		"placements.cluster.open-cluster-management.io",
 		"addonplacementscores.cluster.open-cluster-management.io",
 	}
-	if err := wait.PollUntil(1*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		for _, crdName := range ocmCRDs {
 			_, err := dynamicClient.Resource(schema.GroupVersionResource{
 				Group:    apiextensionsv1.SchemeGroupVersion.Group,
@@ -78,7 +78,7 @@ func WaitForOcmCrdReady(ctx context.Context, dynamicClient dynamic.Interface) bo
 		}
 		klog.Infof("ocm crds are ready")
 		return true, nil
-	}, ctx.Done()); err != nil {
+	}); err != nil {
 		return false
 	}
 	return true
@@ -86,7 +86,7 @@ func WaitForOcmCrdReady(ctx context.Context, dynamicClient dynamic.Interface) bo
 
 func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface) error {
 	// poll here, call create to create base crds
-	if err := wait.PollImmediateInfiniteWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		if err := create(ctx, crdClient.ApiextensionsV1().CustomResourceDefinitions(), baseCRD); err != nil {
 			klog.Errorf("failed to bootstrap system CRDs: %v", err)
 			return false, nil // keep retrying
@@ -200,7 +200,7 @@ func createOneFromFile(ctx context.Context, client apiextensionsv1client.CustomR
 	}
 
 	// poll until crd condition is true
-	return wait.PollImmediateInfiniteWithContext(ctx, 100*time.Millisecond, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(ctx context.Context) (bool, error) {
 		crd, err := client.Get(ctx, rawCrd.Name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {

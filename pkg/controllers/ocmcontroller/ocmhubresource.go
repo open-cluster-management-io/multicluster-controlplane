@@ -2,7 +2,6 @@
 package ocmcontroller
 
 import (
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -14,10 +13,6 @@ import (
 
 func InstallHubResource(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
 	klog.Info("installing ocm hub resources")
-	apiextensionsClient, err := apiextensionsclient.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
-	if err != nil {
-		return err
-	}
 	dynamicClient, err := dynamic.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
@@ -30,7 +25,7 @@ func InstallHubResource(stopCh <-chan struct{}, aggregatorConfig *aggregatorapis
 	if err := ocmhubresource.Bootstrap(
 		util.GoContext(stopCh),
 		aggregatorConfig.GenericConfig.Config,
-		apiextensionsClient.Discovery(),
+		kubeClient.Discovery(),
 		dynamicClient,
 		kubeClient,
 	); err != nil {

@@ -22,7 +22,7 @@ check: check-copyright
 .PHONY: check
 
 verify-gocilint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.2
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.2
 	go vet ./...
 	golangci-lint run --timeout=3m ./...
 .PHONY: verify-gocilint

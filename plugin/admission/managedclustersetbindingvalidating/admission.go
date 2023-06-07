@@ -16,7 +16,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/request"
 	"k8s.io/client-go/kubernetes"
 	clusterv1beta2api "open-cluster-management.io/api/cluster/v1beta2"
-	webhookv1beta2 "open-cluster-management.io/registration/pkg/webhook/v1beta2"
+	webhookv1beta2 "open-cluster-management.io/ocm/pkg/registration/webhook/v1beta2"
 	runtimeadmission "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -56,7 +56,7 @@ func NewPlugin() *Plugin {
 }
 
 func (p *Plugin) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	v := generic.VersionedAttributes{
+	v := admission.VersionedAttributes{
 		Attributes:         a,
 		VersionedOldObject: a.GetOldObject(),
 		VersionedObject:    a.GetObject(),
@@ -91,7 +91,8 @@ func (p *Plugin) Validate(ctx context.Context, a admission.Attributes, o admissi
 	admissionContext := runtimeadmission.NewContextWithRequest(ctx, r)
 	switch a.GetOperation() {
 	case admission.Create:
-		return p.webhook.ValidateCreate(admissionContext, binding)
+		_, err := p.webhook.ValidateCreate(admissionContext, binding)
+		return err
 	case admission.Update:
 		oldBinding := &clusterv1beta2api.ManagedClusterSetBinding{}
 		oldObj := a.GetOldObject().(*unstructured.Unstructured)
@@ -99,7 +100,8 @@ func (p *Plugin) Validate(ctx context.Context, a admission.Attributes, o admissi
 		if err != nil {
 			return err
 		}
-		return p.webhook.ValidateUpdate(admissionContext, oldBinding, binding)
+		_, err = p.webhook.ValidateUpdate(admissionContext, oldBinding, binding)
+		return err
 	}
 
 	return nil

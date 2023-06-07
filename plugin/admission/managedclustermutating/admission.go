@@ -14,7 +14,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/request"
 	clusterv1api "open-cluster-management.io/api/cluster/v1"
-	clusterwebhookv1 "open-cluster-management.io/registration/pkg/webhook/v1"
+	clusterwebhookv1 "open-cluster-management.io/ocm/pkg/registration/webhook/v1"
 	runtimeadmission "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	admissionutil "open-cluster-management.io/multicluster-controlplane/plugin/admission/util"
@@ -48,7 +48,7 @@ func NewPlugin() *Plugin {
 }
 
 func (p *Plugin) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
-	v := generic.VersionedAttributes{
+	v := admission.VersionedAttributes{
 		Attributes:         a,
 		VersionedOldObject: a.GetOldObject(),
 		VersionedObject:    a.GetObject(),

@@ -58,7 +58,7 @@ type CertificateSigner struct {
 	subCAs             map[string]*CertificateSigner
 	signedCertificates map[string]*signedCertificateInfo
 
-	caBundlePaths sets.String
+	caBundlePaths sets.Set[string]
 }
 
 type signedCertificateInfo struct {
@@ -128,7 +128,7 @@ func (s *CertificateSigner) regenerateSelf() error {
 
 	s.signerConfig = signerConfig
 
-	return s.AddToBundles(s.caBundlePaths.List()...)
+	return s.AddToBundles(s.caBundlePaths.UnsortedList()...)
 }
 
 func (s *CertificateSigner) regenerateSubCA(subCAName string) error {
@@ -250,7 +250,7 @@ func (s *CertificateSigner) toBuilder() CertificateSignerBuilder {
 		}
 	}
 
-	signer = signer.WithCABundlePaths(s.caBundlePaths.List()...)
+	signer = signer.WithCABundlePaths(s.caBundlePaths.UnsortedList()...)
 
 	return signer
 }
