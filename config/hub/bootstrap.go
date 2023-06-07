@@ -4,7 +4,6 @@ package hub
 import (
 	"bytes"
 	"context"
-	"embed"
 	"fmt"
 	"html/template"
 	"math/rand"
@@ -13,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,15 +22,12 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo"
 	"k8s.io/kubernetes/cmd/kubeadm/app/util/apiclient"
-
-	confighelpers "open-cluster-management.io/multicluster-controlplane/config/helpers"
 )
 
 const (
@@ -41,9 +36,6 @@ const (
 )
 
 var letterRunes_az09 = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
-
-//go:embed *.yaml
-var fs embed.FS
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -75,7 +67,7 @@ stringData:
   auth-extra-groups: system:bootstrappers:managedcluster
 `
 
-func bootstrapTokenSecret(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
+func bootstrapTokenSecret(ctx context.Context, dynamicClient dynamic.Interface) error {
 	var hub = Hub{
 		TokenID:     randStringRunes(6, letterRunes_az09),
 		TokenSecret: randStringRunes(16, letterRunes_az09),
@@ -104,27 +96,10 @@ func bootstrapTokenSecret(ctx context.Context, discoveryClient discovery.Discove
 		return err
 	}
 
-	unstructuredObj := &unstructured.Unstructured{Object: unstructuredMap}
-
-	gr, err := restmapper.GetAPIGroupResources(discoveryClient)
-	if err != nil {
-		return err
-	}
-
-	mapper := restmapper.NewDiscoveryRESTMapper(gr)
-	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		return err
-	}
-
-	var dri dynamic.ResourceInterface
-	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-		dri = dynamicClient.Resource(mapping.Resource).Namespace(unstructuredObj.GetNamespace())
-	} else {
-		dri = dynamicClient.Resource(mapping.Resource)
-	}
-
-	obj2, err := dri.Create(context.Background(), unstructuredObj, metav1.CreateOptions{})
+	obj2, err := dynamicClient.Resource(gvk.GroupVersion().WithResource("secrets")).
+		Namespace("kube-system").
+		Create(context.Background(), &unstructured.Unstructured{Object: unstructuredMap},
+			metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
@@ -206,7 +181,7 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 		}
 		return true, nil
 	}); err == nil {
-		err = bootstrapTokenSecret(ctx, discoveryClient, dynamicClient)
+		err = bootstrapTokenSecret(ctx, dynamicClient)
 		if err != nil {
 			klog.Errorf("failed to bootstrap token secret: %v", err)
 			// nolint:nilerr
@@ -247,11 +222,78 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 		klog.Errorf("failed to create clusterrolebinding for 'kube:admin': %w", err)
 	}
 
-	return bootstrap(ctx, discoveryClient, dynamicClient)
-}
+	if err := wait.PollInfinite(1*time.Second, func() (bool, error) {
+		_, err := kubeClient.RbacV1().ClusterRoles().Create(
+			ctx,
+			&rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "system:open-cluster-management:bootstrap",
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"configmaps"},
+						Verbs:     []string{"get"},
+					},
+					{
+						APIGroups: []string{"certificates.k8s.io"},
+						Resources: []string{"certificatesigningrequests"},
+						Verbs:     []string{"get", "list", "watch", "create"},
+					},
+					{
+						APIGroups: []string{"cluster.open-cluster-management.io"},
+						Resources: []string{"managedclusters"},
+						Verbs:     []string{"get", "list", "update", "create"},
+					},
+					{
+						APIGroups: []string{"cluster.open-cluster-management.io"},
+						Resources: []string{"managedclustersets/join"},
+						Verbs:     []string{"create"},
+					},
+				},
+			},
+			metav1.CreateOptions{},
+		)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}); err != nil {
+		klog.Errorf("failed to create clusterrolebinding for 'kube:admin': %w", err)
+	}
 
-func bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface) error {
-	return confighelpers.Bootstrap(ctx, discoveryClient, dynamicClient, fs)
+	// allow user `kube:admin` access the controlplane as cluster admin
+	if err := wait.PollInfinite(1*time.Second, func() (bool, error) {
+		_, err := kubeClient.RbacV1().ClusterRoleBindings().Create(
+			ctx,
+			&rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-bootstrap",
+				},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "ClusterRole",
+					Name:     "system:open-cluster-management:bootstrap",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						APIGroup: "rbac.authorization.k8s.io",
+						Kind:     "Group",
+						Name:     "system:bootstrappers:managedcluster",
+					},
+				},
+			},
+			metav1.CreateOptions{},
+		)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}); err != nil {
+		klog.Errorf("failed to create clusterrolebinding for 'kube:admin': %w", err)
+	}
+
+	return nil
 }
 
 func randStringRunes(n int, runes []rune) string {
