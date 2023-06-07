@@ -113,7 +113,7 @@ func createNamespace(ctx context.Context, kubeClient kubernetes.Interface, ns st
 }
 
 func waitForSelfManagedCluster(ctx context.Context, clusterClient clusterclient.Interface, selfClusterName string) error {
-	return wait.PollImmediateInfinite(5*time.Second, func() (bool, error) {
+	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
 		_, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, selfClusterName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			_, err := clusterClient.ClusterV1().ManagedClusters().Create(

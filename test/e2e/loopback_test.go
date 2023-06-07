@@ -26,28 +26,29 @@ var _ = ginkgo.Describe("Loopback registration and work management", func() {
 		ginkgo.It("should be able to create a manifestwork in self management cluster", func() {
 			var localClusterName string
 			ginkgo.By("Waiting the self management becomes available", func() {
-				gomega.Expect(wait.Poll(1*time.Second, timeout, func() (bool, error) {
-					clusters, err := hubClusterClient.ClusterV1().ManagedClusters().List(context.TODO(), metav1.ListOptions{
-						LabelSelector: "multicluster-controlplane.open-cluster-management.io/selfmanagement",
-					})
+				gomega.Expect(wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, timeout, true,
+					func(ctx context.Context) (bool, error) {
+						clusters, err := hubClusterClient.ClusterV1().ManagedClusters().List(ctx, metav1.ListOptions{
+							LabelSelector: "multicluster-controlplane.open-cluster-management.io/selfmanagement",
+						})
 
-					if err != nil {
-						return false, err
-					}
+						if err != nil {
+							return false, err
+						}
 
-					if len(clusters.Items) != 1 {
+						if len(clusters.Items) != 1 {
+							return false, nil
+						}
+
+						localCluster := clusters.Items[0]
+
+						if meta.IsStatusConditionTrue(localCluster.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
+							localClusterName = localCluster.Name
+							return true, nil
+						}
+
 						return false, nil
-					}
-
-					localCluster := clusters.Items[0]
-
-					if meta.IsStatusConditionTrue(localCluster.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
-						localClusterName = localCluster.Name
-						return true, nil
-					}
-
-					return false, nil
-				})).ToNot(gomega.HaveOccurred())
+					})).ToNot(gomega.HaveOccurred())
 			})
 
 			workName := fmt.Sprintf("local-cluster-%s", rand.String(6))
@@ -59,22 +60,23 @@ var _ = ginkgo.Describe("Loopback registration and work management", func() {
 	ginkgo.Context("cluster registration with controlplane agent", func() {
 		ginkgo.It("should have a loopback cluster", func() {
 			ginkgo.By("Waiting the loopback becomes available", func() {
-				gomega.Expect(wait.Poll(1*time.Second, timeout, func() (bool, error) {
-					loopbackCluster, err := hubClusterClient.ClusterV1().ManagedClusters().Get(context.TODO(), loopbackClusterName, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
+				gomega.Expect(wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, timeout, true,
+					func(ctx context.Context) (bool, error) {
+						loopbackCluster, err := hubClusterClient.ClusterV1().ManagedClusters().Get(context.TODO(), loopbackClusterName, metav1.GetOptions{})
+						if errors.IsNotFound(err) {
+							return false, nil
+						}
+
+						if err != nil {
+							return false, err
+						}
+
+						if meta.IsStatusConditionTrue(loopbackCluster.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
+							return true, nil
+						}
+
 						return false, nil
-					}
-
-					if err != nil {
-						return false, err
-					}
-
-					if meta.IsStatusConditionTrue(loopbackCluster.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
-						return true, nil
-					}
-
-					return false, nil
-				})).ToNot(gomega.HaveOccurred())
+					})).ToNot(gomega.HaveOccurred())
 			})
 		})
 
@@ -108,21 +110,22 @@ func createAndDeleteManifestwork(clusterName, workName, configMapName string) {
 	})
 
 	ginkgo.By("Waiting the manifestwork becomes available", func() {
-		gomega.Expect(wait.Poll(1*time.Second, timeout, func() (bool, error) {
-			work, err := hubWorkClient.WorkV1().ManifestWorks(clusterName).Get(context.TODO(), workName, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
+		gomega.Expect(wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, timeout, true,
+			func(ctx context.Context) (bool, error) {
+				work, err := hubWorkClient.WorkV1().ManifestWorks(clusterName).Get(context.TODO(), workName, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return false, nil
+				}
+				if err != nil {
+					return false, err
+				}
+
+				if meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkAvailable) {
+					return true, nil
+				}
+
 				return false, nil
-			}
-			if err != nil {
-				return false, err
-			}
-
-			if meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkAvailable) {
-				return true, nil
-			}
-
-			return false, nil
-		})).ToNot(gomega.HaveOccurred())
+			})).ToNot(gomega.HaveOccurred())
 	})
 
 	ginkgo.By("Get the configmap that was created by manifestwork", func() {
@@ -136,17 +139,18 @@ func createAndDeleteManifestwork(clusterName, workName, configMapName string) {
 	})
 
 	ginkgo.By("Waiting the configmap is deleted", func() {
-		gomega.Expect(wait.Poll(1*time.Second, timeout, func() (bool, error) {
-			_, err := spokeKubeClient.CoreV1().ConfigMaps(defaultNamespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return true, nil
-			}
+		gomega.Expect(wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, timeout, true,
+			func(ctx context.Context) (bool, error) {
+				_, err := spokeKubeClient.CoreV1().ConfigMaps(defaultNamespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true, nil
+				}
 
-			if err != nil {
-				return false, err
-			}
+				if err != nil {
+					return false, err
+				}
 
-			return false, nil
-		})).ToNot(gomega.HaveOccurred())
+				return false, nil
+			})).ToNot(gomega.HaveOccurred())
 	})
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	"github.com/openshift/library-go/pkg/crypto"
@@ -25,7 +24,7 @@ func Test_certificateChains_Complete(t *testing.T) {
 		name            string
 		testChains      CertificateChainsBuilder
 		testClientPaths map[string]user.Info
-		testServerPaths map[string]sets.String
+		testServerPaths map[string][]string
 		wantSigners     []string
 		wantErr         bool
 	}{
@@ -63,8 +62,8 @@ func Test_certificateChains_Complete(t *testing.T) {
 				"test-signer1/test-client2": &user.DefaultInfo{Name: "test-user2"},
 				"test-signer1/test-client":  nil,
 			},
-			testServerPaths: map[string]sets.String{
-				"test-signer2/test-server1": sets.NewString("somewhere.over.the.rainbow", "bluebirds.fly"),
+			testServerPaths: map[string][]string{
+				"test-signer2/test-server1": {"somewhere.over.the.rainbow", "bluebirds.fly"},
 			},
 		},
 	}
@@ -117,11 +116,11 @@ func Test_certificateChains_Complete(t *testing.T) {
 
 				gotCert := pemToCert(t, gotPEM)
 
-				if cn := gotCert.Subject.CommonName; cn != expectedHostnames.List()[0] {
-					t.Errorf("expected certificate CN at path %q to be %q, but it is %q", path, expectedHostnames.List()[0], cn)
+				if cn := gotCert.Subject.CommonName; cn != expectedHostnames[0] {
+					t.Errorf("expected certificate CN at path %q to be %q, but it is %q", path, expectedHostnames[0], cn)
 				}
 
-				expectedIPs, expectedDNSes := crypto.IPAddressesDNSNames(expectedHostnames.List())
+				expectedIPs, expectedDNSes := crypto.IPAddressesDNSNames(expectedHostnames)
 				if !equality.Semantic.DeepEqual(gotCert.IPAddresses, expectedIPs) || !equality.Semantic.DeepEqual(gotCert.DNSNames, expectedDNSes) {
 					t.Errorf("extected certificate at path %q to have IPs %v and DNS names %v, but got %v and %v", path, expectedIPs, expectedDNSes, gotCert.IPAddresses, gotCert.DNSNames)
 				}

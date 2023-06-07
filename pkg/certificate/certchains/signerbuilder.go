@@ -123,7 +123,7 @@ func (s *certificateSigner) Complete() (*CertificateSigner, error) {
 		subCAs:             make(map[string]*CertificateSigner),
 		signedCertificates: make(map[string]*signedCertificateInfo),
 
-		caBundlePaths: sets.NewString(),
+		caBundlePaths: sets.Set[string]{},
 	}
 
 	for _, subCA := range s.subCAs {

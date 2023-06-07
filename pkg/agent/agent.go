@@ -255,9 +255,9 @@ func (o *AgentOptions) ensureCRDs(ctx context.Context, client apiextensionsclien
 }
 
 func (o *AgentOptions) WaitForValidHubKubeConfig(ctx context.Context, kubeconfigPath string) error {
-	return wait.PollImmediateInfinite(
-		5*time.Second,
-		func() (bool, error) {
+	return wait.PollUntilContextCancel(
+		ctx, 5*time.Second, true,
+		func(ctx context.Context) (bool, error) {
 			if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
 				klog.V(4).Infof("Kubeconfig file %q not found", kubeconfigPath)
 				return false, nil

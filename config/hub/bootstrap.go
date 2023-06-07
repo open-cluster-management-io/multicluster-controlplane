@@ -37,10 +37,6 @@ const (
 
 var letterRunes_az09 = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 type Hub struct {
 	TokenID     string
 	TokenSecret string
@@ -123,7 +119,7 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 	}
 
 	// poll until kube-public created
-	if err = wait.PollInfinite(1*time.Second, func() (bool, error) {
+	if err = wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		_, err := kubeClient.CoreV1().Namespaces().Get(ctx, metav1.NamespacePublic, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -174,7 +170,7 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 		// nolint:nilerr
 	}
 
-	if err = wait.PollInfinite(1*time.Second, func() (bool, error) {
+	if err = wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		_, err := kubeClient.CoreV1().Namespaces().Get(ctx, metav1.NamespaceSystem, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -192,7 +188,8 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 	}
 
 	// allow user `kube:admin` access the controlplane as cluster admin
-	if err := wait.PollInfinite(1*time.Second, func() (bool, error) {
+	// TODO(clyang82): need to handle already exists and then do updating
+	if err := wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		_, err := kubeClient.RbacV1().ClusterRoleBindings().Create(
 			ctx,
 			&rbacv1.ClusterRoleBinding{
@@ -222,7 +219,8 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 		klog.Errorf("failed to create clusterrolebinding for 'kube:admin': %w", err)
 	}
 
-	if err := wait.PollInfinite(1*time.Second, func() (bool, error) {
+	// TODO(clyang82): need to handle already exists and then do updating
+	if err := wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		_, err := kubeClient.RbacV1().ClusterRoles().Create(
 			ctx,
 			&rbacv1.ClusterRole{
@@ -262,8 +260,9 @@ func Bootstrap(ctx context.Context, config genericapiserver.Config, discoveryCli
 		klog.Errorf("failed to create clusterrolebinding for 'kube:admin': %w", err)
 	}
 
-	// allow user `kube:admin` access the controlplane as cluster admin
-	if err := wait.PollInfinite(1*time.Second, func() (bool, error) {
+	// create cluster-bootstrap clusterrole
+	// TODO(clyang82): need to handle already exists and then do updating
+	if err := wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
 		_, err := kubeClient.RbacV1().ClusterRoleBindings().Create(
 			ctx,
 			&rbacv1.ClusterRoleBinding{
