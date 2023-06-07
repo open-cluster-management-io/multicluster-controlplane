@@ -255,10 +255,6 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 // Complete set default Options.
 // Should be called after kube-apiserver flags parsed.
 func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
-	// configure kube-apiserver features here
-	if err := utilfeature.DefaultMutableFeatureGate.Set("OpenAPIV3=false"); err != nil {
-		return err
-	}
 	for name := range utilfeature.DefaultMutableFeatureGate.GetAll() {
 		klog.Infof("kube-apiserver feature %s is %v", name, utilfeature.DefaultMutableFeatureGate.Enabled(name))
 	}

@@ -3,8 +3,8 @@ module open-cluster-management.io/multicluster-controlplane
 go 1.20
 
 require (
-	github.com/onsi/ginkgo/v2 v2.9.1
-	github.com/onsi/gomega v1.27.4
+	github.com/onsi/ginkgo/v2 v2.9.5
+	github.com/onsi/gomega v1.27.7
 	github.com/openshift/client-go v0.0.0-20230120202327-72f107311084
 	github.com/openshift/library-go v0.0.0-20230321160537-6ac65c5454f9
 	github.com/pkg/errors v0.9.1
@@ -17,19 +17,19 @@ require (
 	k8s.io/apimachinery v0.27.2
 	k8s.io/apiserver v0.27.2
 	k8s.io/client-go v0.27.2
-	k8s.io/cluster-bootstrap v0.25.4
+	k8s.io/cluster-bootstrap v0.27.2
 	k8s.io/component-base v0.27.2
+	k8s.io/controller-manager v0.27.2
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kube-aggregator v0.27.2
+	k8s.io/kube-controller-manager v0.27.2
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/kubernetes v1.27.2
 	k8s.io/metrics v0.27.2
-	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
+	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	open-cluster-management.io/api v0.11.0
-	open-cluster-management.io/placement v0.11.0
-	open-cluster-management.io/registration v0.11.0
-	open-cluster-management.io/work v0.11.0
-	sigs.k8s.io/controller-runtime v0.14.6
+	open-cluster-management.io/ocm v0.0.0-20230606095507-6f21760b7e57
+	sigs.k8s.io/controller-runtime v0.15.0
 )
 
 require (
@@ -38,7 +38,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coreos/go-oidc v2.1.0+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.4.0 // indirect
@@ -67,7 +67,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.2 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -78,9 +78,9 @@ require (
 	github.com/opencontainers/selinux v1.10.0 // indirect
 	github.com/openshift/api v0.0.0-20230223193310-d964c7a58d75 // indirect
 	github.com/pkg/profile v1.3.0 // indirect
-	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/prometheus/common v0.37.0 // indirect
-	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/prometheus/client_model v0.4.0 // indirect
+	github.com/prometheus/common v0.42.0 // indirect
+	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
@@ -93,12 +93,12 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.7 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.5.7 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.7 // indirect
-	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
-	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
+	golang.org/x/sync v0.2.0 // indirect
+	golang.org/x/term v0.8.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
+	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
@@ -120,7 +120,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
@@ -130,23 +130,22 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.10.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect
-	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect
+	golang.org/x/oauth2 v0.5.0 // indirect
+	google.golang.org/genproto v0.0.0-20221202195650-67e5cbc046fd // indirect
 	google.golang.org/grpc v1.51.0 // indirect
 	k8s.io/kms v0.27.2 // indirect
 )
 
 require (
-	cloud.google.com/go/compute v1.9.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
-	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/cel-go v0.12.6 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/jonboulle/clockwork v0.3.0 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
-	github.com/prometheus/client_golang v1.14.0 // indirect
+	github.com/prometheus/client_golang v1.15.1 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.35.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.35.1 // indirect
@@ -159,17 +158,14 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.7.0 // indirect
-	k8s.io/controller-manager v0.27.2
-	k8s.io/kube-controller-manager v0.0.0
+	golang.org/x/tools v0.9.1 // indirect
 )
 
 // replace these repos because of imported k8s.io/kubernetes
 replace (
-	gopkg.in/square/go-jose.v2 => gopkg.in/square/go-jose.v2 v2.2.2
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.27.2
 	k8s.io/code-generator => k8s.io/code-generator v0.27.2
 	k8s.io/component-helpers => k8s.io/component-helpers v0.27.2

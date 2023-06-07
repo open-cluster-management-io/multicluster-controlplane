@@ -35,16 +35,16 @@ import (
 	ocmfeature "open-cluster-management.io/api/feature"
 	"open-cluster-management.io/multicluster-controlplane/pkg/features"
 	"open-cluster-management.io/multicluster-controlplane/pkg/util"
-	"open-cluster-management.io/registration/pkg/clientcert"
-	registrationfeatures "open-cluster-management.io/registration/pkg/features"
-	"open-cluster-management.io/registration/pkg/spoke"
-	"open-cluster-management.io/registration/pkg/spoke/managedcluster"
-	"open-cluster-management.io/work/pkg/helper"
-	"open-cluster-management.io/work/pkg/spoke/auth"
-	"open-cluster-management.io/work/pkg/spoke/controllers/appliedmanifestcontroller"
-	"open-cluster-management.io/work/pkg/spoke/controllers/finalizercontroller"
-	"open-cluster-management.io/work/pkg/spoke/controllers/manifestcontroller"
-	"open-cluster-management.io/work/pkg/spoke/controllers/statuscontroller"
+	ocmfeatures "open-cluster-management.io/ocm/pkg/features"
+	"open-cluster-management.io/ocm/pkg/registration/clientcert"
+	"open-cluster-management.io/ocm/pkg/registration/spoke"
+	"open-cluster-management.io/ocm/pkg/registration/spoke/managedcluster"
+	"open-cluster-management.io/ocm/pkg/work/helper"
+	"open-cluster-management.io/ocm/pkg/work/spoke/auth"
+	"open-cluster-management.io/ocm/pkg/work/spoke/controllers/appliedmanifestcontroller"
+	"open-cluster-management.io/ocm/pkg/work/spoke/controllers/finalizercontroller"
+	"open-cluster-management.io/ocm/pkg/work/spoke/controllers/manifestcontroller"
+	"open-cluster-management.io/ocm/pkg/work/spoke/controllers/statuscontroller"
 )
 
 const (
@@ -193,10 +193,10 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 	go func() {
 		// set registration features
 		registrationFeatures := map[string]bool{}
-		for feature := range registrationfeatures.DefaultSpokeMutableFeatureGate.GetAll() {
+		for feature := range ocmfeatures.DefaultSpokeRegistrationMutableFeatureGate.GetAll() {
 			registrationFeatures[string(feature)] = features.DefaultAgentMutableFeatureGate.Enabled(feature)
 		}
-		if err := registrationfeatures.DefaultSpokeMutableFeatureGate.SetFromMap(registrationFeatures); err != nil {
+		if err := ocmfeatures.DefaultSpokeRegistrationMutableFeatureGate.SetFromMap(registrationFeatures); err != nil {
 			klog.Fatalf("failed to set registration features, %v", err)
 		}
 
@@ -327,7 +327,11 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		return err
 	}
 
-	restMapper, err := apiutil.NewDynamicRESTMapper(spokeRestConfig, apiutil.WithLazyDiscovery)
+	httpClient, err := rest.HTTPClientFor(spokeRestConfig)
+	if err != nil {
+		return err
+	}
+	restMapper, err := apiutil.NewDynamicRESTMapper(spokeRestConfig, httpClient)
 	if err != nil {
 		return err
 	}
