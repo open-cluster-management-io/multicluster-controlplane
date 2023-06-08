@@ -5,7 +5,7 @@ source "$(dirname "${BASH_SOURCE}")/init.sh"
 
 for f in $HUB_CRD_FILES
 do
-    cp $f ./config/crds/
+    cp $f ./pkg/controllers/bootstrap/crds/
 done
 
 for f in $SPOKE_CRD_FILES
