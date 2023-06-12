@@ -141,6 +141,7 @@ jobs:
           tag: ${{ env.RELEASE_VERSION }}
           artifacts: "go/src/open-cluster-management.io/multicluster-controlplane/release/*.tgz"
           token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
       - name: submit charts to OCM chart repo
         uses: actions/github-script@v6
         with:
