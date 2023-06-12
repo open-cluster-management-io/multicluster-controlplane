@@ -12,7 +12,7 @@ import (
 
 	certv1 "k8s.io/api/certificates/v1"
 	certv1beta1 "k8s.io/api/certificates/v1beta1"
-	"k8s.io/client-go/dynamic"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	genericinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -28,8 +28,7 @@ import (
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned"
 	workv1informers "open-cluster-management.io/api/client/work/informers/externalversions"
 	ocmfeature "open-cluster-management.io/api/feature"
-	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
-	confighub "open-cluster-management.io/multicluster-controlplane/config/hub"
+	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/bootstrap"
 	"open-cluster-management.io/multicluster-controlplane/pkg/features"
 	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 	scheduling "open-cluster-management.io/ocm/pkg/placement/controllers/scheduling"
@@ -54,15 +53,15 @@ func InstallControllers(clusterAutoApprovalUsers []string) func(<-chan struct{},
 			restConfig := aggregatorConfig.GenericConfig.LoopbackClientConfig
 			restConfig.ContentType = "application/json"
 
-			dynamicClient, err := dynamic.NewForConfig(restConfig)
+			apiextensionsClient, err := apiextensionsclient.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
 			if err != nil {
-				klog.Fatalf("failed to create dynamic client: %v", err)
+				klog.Fatalf("failed to create apiextensions client: %v", err)
 			}
 
 			ctx := util.GoContext(stopCh)
 
-			if ocmcrds.WaitForOcmCrdReady(ctx, dynamicClient) {
-				klog.Infof("ocm crd is ready!")
+			if bootstrap.WaitFOROCMCRDsReady(ctx, apiextensionsClient) {
+				klog.Infof("ocm crds are ready")
 			}
 
 			if err := runControllers(ctx, restConfig, aggregatorConfig.GenericConfig.SharedInformerFactory, clusterAutoApprovalUsers); err != nil {
@@ -90,7 +89,7 @@ func runControllers(ctx context.Context,
 	controllerContext := &controllercmd.ControllerContext{
 		KubeConfig:        restConfig,
 		EventRecorder:     eventRecorder,
-		OperatorNamespace: confighub.HubNamespace,
+		OperatorNamespace: "open-cluster-management-hub",
 	}
 
 	clusterClient, err := clusterv1client.NewForConfig(restConfig)

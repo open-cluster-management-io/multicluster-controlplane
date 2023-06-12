@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -114,7 +115,7 @@ func createNamespace(ctx context.Context, kubeClient kubernetes.Interface, ns st
 
 func waitForSelfManagedCluster(ctx context.Context, clusterClient clusterclient.Interface, selfClusterName string) error {
 	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		_, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, selfClusterName, metav1.GetOptions{})
+		selfCluster, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, selfClusterName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			_, err := clusterClient.ClusterV1().ManagedClusters().Create(
 				ctx,
@@ -131,21 +132,14 @@ func waitForSelfManagedCluster(ctx context.Context, clusterClient clusterclient.
 				},
 				metav1.CreateOptions{},
 			)
-			if errors.IsNotFound(err) {
-				// the cluster may be not ready, retry
-				return false, nil
-			}
-			if err != nil {
-				return false, err
-			}
 
-			return true, nil
+			return false, err
 		}
 
 		if err != nil {
 			return false, err
 		}
 
-		return true, nil
+		return meta.IsStatusConditionTrue(selfCluster.Status.Conditions, clusterv1.ManagedClusterConditionHubAccepted), nil
 	})
 }

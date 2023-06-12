@@ -6,7 +6,7 @@ import (
 	"k8s.io/klog/v2"
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 
-	ocmcrds "open-cluster-management.io/multicluster-controlplane/config/crds"
+	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/bootstrap"
 	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
@@ -16,7 +16,7 @@ func InstallCRD(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Co
 	if err != nil {
 		return err
 	}
-	if err := ocmcrds.Bootstrap(util.GoContext(stopCh), apiextensionsClient); err != nil {
+	if err := bootstrap.InstallBaseCRDs(util.GoContext(stopCh), apiextensionsClient); err != nil {
 		klog.Errorf("failed to bootstrap OCM CRDs: %v", err)
 		// nolint:nilerr
 		return nil // don't klog.Fatal. This only happens when context is cancelled.
