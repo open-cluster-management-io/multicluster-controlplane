@@ -28,7 +28,7 @@ require (
 	k8s.io/metrics v0.27.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 	open-cluster-management.io/api v0.11.0
-	open-cluster-management.io/ocm v0.0.0-20230606095507-6f21760b7e57
+	open-cluster-management.io/ocm v0.0.0-20230613031015-b55881d6d261
 	sigs.k8s.io/controller-runtime v0.15.0
 )
 
@@ -157,7 +157,7 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/crypto v0.3.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
