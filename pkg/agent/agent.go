@@ -13,6 +13,7 @@ import (
 
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -83,6 +84,7 @@ type AgentOptions struct {
 
 	SpokeKubeInformerFactory    informers.SharedInformerFactory
 	SpokeClusterInformerFactory clusterv1informers.SharedInformerFactory
+	SpokeRestMapper             meta.RESTMapper
 
 	eventRecorder events.Recorder
 }
@@ -231,6 +233,16 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 		return err
 	}
 
+	httpClient, err := rest.HTTPClientFor(spokeKubeConfig)
+	if err != nil {
+		return err
+	}
+
+	o.SpokeRestMapper, err = apiutil.NewDynamicRESTMapper(spokeKubeConfig, httpClient)
+	if err != nil {
+		return err
+	}
+
 	klog.Infof("Starting work agent")
 	if err := o.startWorkControllers(
 		ctx,
@@ -349,15 +361,6 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		return err
 	}
 
-	httpClient, err := rest.HTTPClientFor(spokeRestConfig)
-	if err != nil {
-		return err
-	}
-	restMapper, err := apiutil.NewDynamicRESTMapper(spokeRestConfig, httpClient)
-	if err != nil {
-		return err
-	}
-
 	// Only watch the cluster namespace on hub
 	workInformerFactory := workinformers.NewSharedInformerFactoryWithOptions(
 		hubWorkClient, 5*time.Minute, workinformers.WithNamespace(clusterName))
@@ -369,7 +372,7 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		workInformerFactory.Work().V1().ManifestWorks(),
 		clusterName,
 		eventRecorder,
-		restMapper,
+		o.SpokeRestMapper,
 	).NewExecutorValidator(ctx, features.DefaultAgentMutableFeatureGate.Enabled(ocmfeature.ExecutorValidatingCaches))
 
 	manifestWorkController := manifestcontroller.NewManifestWorkController(
@@ -384,7 +387,7 @@ func (o *AgentOptions) startWorkControllers(ctx context.Context,
 		spokeWorkInformerFactory.Work().V1().AppliedManifestWorks(),
 		hubhash,
 		agentID,
-		restMapper,
+		o.SpokeRestMapper,
 		validator,
 	)
 
