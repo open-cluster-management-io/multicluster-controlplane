@@ -50,7 +50,7 @@ build-bin-release:
 
 build: 
 	$(shell if [ ! -e $(BINARYDIR) ];then mkdir -p $(BINARYDIR); fi)
-	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane cmd/server/main.go 
+	go build -ldflags="-s -w" -o bin/multicluster-controlplane cmd/server/main.go 
 .PHONY: build
 
 image:
