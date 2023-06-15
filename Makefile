@@ -50,7 +50,7 @@ build-bin-release:
 
 build: vendor
 	$(shell if [ ! -e $(BINARYDIR) ];then mkdir -p $(BINARYDIR); fi)
-	go build -ldflags="-s -w" -o bin/multicluster-controlplane cmd/server/main.go 
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/multicluster-controlplane cmd/server/main.go 
 .PHONY: build
 
 image:
