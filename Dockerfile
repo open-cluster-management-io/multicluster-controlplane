@@ -8,10 +8,8 @@ WORKDIR ${DIRPATH}
 
 COPY . .
 
-RUN apt-get update && apt-get install net-tools && make vendor 
-RUN GOOS=${OS} \
-    GOARCH=${ARCH} \
-    make build
+RUN apt-get update && apt-get install net-tools
+RUN make vendor && make build
 
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
