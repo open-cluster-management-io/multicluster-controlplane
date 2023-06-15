@@ -84,6 +84,8 @@ unset SELF_MANAGEMENT
 popd
 
 wait_command "${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig"
+${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane -n multicluster-controlplane logs -l app=multicluster-controlplane --tail=-1
+
 hubkubeconfig="${cluster_dir}/controlplane.kubeconfig"
 ${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig -ojsonpath='{.data.kubeconfig}' | base64 -d > ${hubkubeconfig}
 
