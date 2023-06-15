@@ -268,6 +268,7 @@ func runControllers(ctx context.Context,
 		controllerContext.EventRecorder, recorder,
 	)
 
+	go kubeInformers.Start(ctx, Done())
 	go clusterInformers.Start(ctx.Done())
 	go workInformers.Start(ctx.Done())
 	go addOnInformers.Start(ctx.Done())
