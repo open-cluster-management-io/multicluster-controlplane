@@ -50,7 +50,6 @@ nodes:
   - containerPort: ${external_host_port}
     hostPort: 443
 EOF
-# kind create cluster --kubeconfig $kubeconfig --name $cluster
 
 echo "Load $IMAGE_NAME to the cluster $cluster ..."
 ${KIND} load docker-image $IMAGE_NAME --name $cluster
@@ -63,7 +62,6 @@ unset KUBECONFIG
 popd
 
 namespace=multicluster-controlplane
-#external_host_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${management_cluster}-control-plane)
 echo "Deploy standalone controlplane in namespace $namespace ..."
 
 ${KUBECTL} --kubeconfig ${kubeconfig} delete ns $namespace --ignore-not-found
@@ -84,11 +82,15 @@ unset SELF_MANAGEMENT
 popd
 
 wait_command "${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig"
+${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane -n multicluster-controlplane logs -l app=multicluster-controlplane --tail=-1
+
 hubkubeconfig="${cluster_dir}/controlplane.kubeconfig"
 ${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig -ojsonpath='{.data.kubeconfig}' | base64 -d > ${hubkubeconfig}
 
+
 # wait the controlplane is ready
 wait_for_url "https://127.0.0.1/readyz"
+
 
 echo "Deploy standalone controlplane agents ..."
 cp -r ${REPO_DIR}/hack/deploy/agent/* $agent_deploy_dir

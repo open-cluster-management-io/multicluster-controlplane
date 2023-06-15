@@ -64,7 +64,12 @@ func InstallControllers(clusterAutoApprovalUsers []string) func(<-chan struct{},
 				klog.Infof("ocm crds are ready")
 			}
 
-			if err := runControllers(ctx, restConfig, aggregatorConfig.GenericConfig.SharedInformerFactory, clusterAutoApprovalUsers); err != nil {
+			if err := runControllers(
+				ctx,
+				restConfig,
+				aggregatorConfig.GenericConfig.SharedInformerFactory,
+				clusterAutoApprovalUsers,
+			); err != nil {
 				klog.Fatalf("failed to bootstrap ocm controllers: %v", err)
 			}
 
@@ -268,9 +273,12 @@ func runControllers(ctx context.Context,
 		controllerContext.EventRecorder, recorder,
 	)
 
+	go kubeInformers.Start(ctx.Done())
 	go clusterInformers.Start(ctx.Done())
 	go workInformers.Start(ctx.Done())
 	go addOnInformers.Start(ctx.Done())
+
+	//TODO need a way to verify all informers are synced
 
 	go managedClusterController.Run(ctx, 1)
 	go taintController.Run(ctx, 1)
