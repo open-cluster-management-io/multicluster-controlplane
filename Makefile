@@ -147,3 +147,4 @@ test-performance: build-performance-test
 	mkdir -p _output/performance
 	./test/performance/hack/performance.sh >_output/performance/perf.$(PERF_TEST_OUTPUT_SUFFIX).output 2>&1 &
 .PHONY: test-performance
+
