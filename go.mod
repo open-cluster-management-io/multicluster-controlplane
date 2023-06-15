@@ -27,8 +27,8 @@ require (
 	k8s.io/kubernetes v1.27.2
 	k8s.io/metrics v0.27.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	open-cluster-management.io/api v0.11.0
-	open-cluster-management.io/ocm v0.0.0-20230613031015-b55881d6d261
+	open-cluster-management.io/api v0.11.1-0.20230609103311-088e8fe86139
+	open-cluster-management.io/ocm v0.0.0-20230614150343-ecfb6c08880e
 	sigs.k8s.io/controller-runtime v0.15.0
 )
 

@@ -48,9 +48,9 @@ build-bin-release:
 	GOOS=linux GOARCH=s390x go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane ./cmd/server/main.go && tar -czf bin/multicluster_controlplane_linux_s390x.tar.gz LICENSE -C bin/ multicluster-controlplane
 	GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -gcflags=-trimpath=x/y -o bin/multicluster-controlplane.exe ./cmd/server/main.go && zip -q bin/multicluster_controlplane_windows_amd64.zip LICENSE -j bin/multicluster-controlplane.exe
 
-build: 
+build: vendor
 	$(shell if [ ! -e $(BINARYDIR) ];then mkdir -p $(BINARYDIR); fi)
-	go build -ldflags="-s -w" -o bin/multicluster-controlplane cmd/server/main.go 
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/multicluster-controlplane cmd/server/main.go 
 .PHONY: build
 
 image:

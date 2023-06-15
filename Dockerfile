@@ -8,7 +8,7 @@ WORKDIR ${DIRPATH}
 
 COPY . .
 
-RUN apt-get update && apt-get install net-tools && make vendor 
+#RUN apt-get update && apt-get install net-tools && make vendor 
 RUN GOOS=${OS} \
     GOARCH=${ARCH} \
     make build
