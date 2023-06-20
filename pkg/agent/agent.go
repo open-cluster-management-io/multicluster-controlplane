@@ -191,6 +191,16 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 		return err
 	}
 
+	httpClient, err := rest.HTTPClientFor(spokeKubeConfig)
+	if err != nil {
+		return err
+	}
+
+	o.SpokeRestMapper, err = apiutil.NewDynamicRESTMapper(spokeKubeConfig, httpClient)
+	if err != nil {
+		return err
+	}
+
 	if err := o.ensureCRDs(ctx, apiExtensionsClient); err != nil {
 		return err
 	}
@@ -229,16 +239,6 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 	}
 
 	hubRestConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
-	if err != nil {
-		return err
-	}
-
-	httpClient, err := rest.HTTPClientFor(spokeKubeConfig)
-	if err != nil {
-		return err
-	}
-
-	o.SpokeRestMapper, err = apiutil.NewDynamicRESTMapper(spokeKubeConfig, httpClient)
 	if err != nil {
 		return err
 	}
