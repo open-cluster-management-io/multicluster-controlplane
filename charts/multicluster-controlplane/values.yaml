@@ -44,3 +44,15 @@ loadbalancer:
 nodeport:
   enabled: false
   port: 30443
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
