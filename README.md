@@ -1,5 +1,22 @@
 [comment]: # ( Copyright Contributors to the Open Cluster Management project )
-# Get started 
+# multicluster-controlplane
+
+The `multicluster-controlplane` is a lightweight Open Cluster Manager (OCM) control plane that is easy to install and has a small footprint. It is more efficient, lightweight, and cost-effective, while improving OCM scalability and support for edge scenarios.
+
+Some of the features are:
+
+- Started the OCM hub control plane in standalone mode.
+- Combined the registration and work agent into a single entity.
+- Reduced the footprint of both the control plane and agent.
+
+The benefits of these improvements are as follows:
+
+- Quick Startup: The lightweight control plane instance can be started within a very short time, making it easier to consume. This reduces resource consumption and lowers costs.
+- Multi-Tenancy: Multiple OCM instances can run in different namespaces within a single Kubernetes cluster. Each instance operates in a pod within its respective namespace. By exposing an endpoint, each OCM instance allows clusters to register as managed clusters.
+- Enhanced Edge Scenarios: A single cluster with multiple OCM instances can support more managed clusters compared to a single OCM cluster. This capability is particularly useful in edge scenarios where managing multiple clusters efficiently is crucial.
+- Platform Compatibility: The multicluster-controlplane offers broader platform compatibility, including support for *ks platforms (e.g., EKS). Moreover, it can even be executed as a standalone binary without the need for deployment on a Kubernetes cluster. 
+
+## Get started 
 
 ## Build
 
