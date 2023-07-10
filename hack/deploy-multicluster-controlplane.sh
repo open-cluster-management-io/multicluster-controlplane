@@ -37,7 +37,6 @@ args="$args --set autoApprovalBootstrapUsers=system:admin"
 if [ 0 -eq $node_port ]; then
     args="$args --set route.enabled=true"
 else
-    args="$args --set route.enabled=false"
     args="$args --set nodeport.enabled=true"
     args="$args --set nodeport.port=${node_port}"
     args="$args --set apiserver.externalHostname=${external_hostname}"
