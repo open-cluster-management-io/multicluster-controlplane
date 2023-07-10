@@ -33,7 +33,7 @@ pvc:
   selector: {}
 
 route:
-  enabled: true
+  enabled: false
   # for route, we may have more config to support in the future
 
 loadbalancer:
