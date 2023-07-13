@@ -3,7 +3,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -24,6 +23,8 @@ import (
 )
 
 var letterRunes_az09 = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+
+const ControlplaneBootstrapTokenName = "bootstrap-token-controlplane"
 
 func BuildKubeSystemResources(ctx context.Context, config server.Config, kubeClient kubernetes.Interface) error {
 	// prepare default namespace
@@ -203,24 +204,41 @@ func prepareBootstrapTokenSecret(ctx context.Context, kubeClient kubernetes.Inte
 	tokenID := randStringRunes(6, letterRunes_az09)
 	tokenSecret := randStringRunes(16, letterRunes_az09)
 
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("bootstrap-token-%s", tokenID),
-			Labels: map[string]string{"app": "cluster-manager"},
-		},
-		Type: corev1.SecretTypeBootstrapToken,
-		StringData: map[string]string{
+	sec, err := kubeClient.CoreV1().Secrets(metav1.NamespaceSystem).Get(ctx, ControlplaneBootstrapTokenName, metav1.GetOptions{})
+	switch {
+	case errors.IsNotFound(err):
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   ControlplaneBootstrapTokenName,
+				Labels: map[string]string{"app": "cluster-manager"},
+			},
+			Type: corev1.SecretTypeBootstrapToken,
+			StringData: map[string]string{
+				"token-id":                       tokenID,
+				"token-secret":                   tokenSecret,
+				"usage-bootstrap-authentication": "true",
+				"auth-extra-groups":              "system:bootstrappers:managedcluster",
+			},
+		}
+		if _, err := kubeClient.CoreV1().Secrets(metav1.NamespaceSystem).Create(
+			ctx, secret, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+	case err == nil:
+		sec.StringData = map[string]string{
 			"token-id":                       tokenID,
 			"token-secret":                   tokenSecret,
 			"usage-bootstrap-authentication": "true",
 			"auth-extra-groups":              "system:bootstrappers:managedcluster",
-		},
-	}
-
-	if _, err := kubeClient.CoreV1().Secrets(metav1.NamespaceSystem).Create(
-		ctx, secret, metav1.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
+		}
+		_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceSystem).Update(ctx, sec, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	default:
 		return err
 	}
+
 	return nil
 }
 
