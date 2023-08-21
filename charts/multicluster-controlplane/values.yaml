@@ -24,8 +24,8 @@ etcd:
   mode: "embed"
   servers: []
   ca: ""
-  cert: "" 
-  certkey: "" 
+  cert: ""
+  certkey: ""
 
 pvc:
   storageCapacity: 1Gi
@@ -55,4 +55,8 @@ containerSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
-securityContext:
+# https://github.com/open-cluster-management-io/multicluster-controlplane/blob/65996596b295e0e438f198eb728d0ebf7e449927/Dockerfile#L18
+podSecurityContext: {}
+  # runAsUser: 10001
+  # runAsGroup: 10001
+  # fsGroup: 10001
