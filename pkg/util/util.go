@@ -125,6 +125,9 @@ func GetExternalHost() (string, error) {
 				}
 
 				host = s.Status.LoadBalancer.Ingress[0].Hostname
+				if host == "" {
+					host = s.Status.LoadBalancer.Ingress[0].IP
+				}
 				if len(host) == 0 {
 					return fmt.Errorf("failed to find the host from the service %s/%s ingress, retrying", ns, defaultServiceName)
 				}
