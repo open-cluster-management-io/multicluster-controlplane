@@ -38,8 +38,6 @@ route:
 
 loadbalancer:
   enabled: false
-  # TODO: is it any different with externalHostname?
-  baseDomain: ""  #e,g, *.aws.xxx
 
 nodeport:
   enabled: false
