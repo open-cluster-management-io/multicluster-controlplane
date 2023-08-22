@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 	"os"
 	"strconv"
 	"strings"
@@ -53,10 +54,8 @@ import (
 	"k8s.io/kubernetes/pkg/serviceaccount"
 	netutils "k8s.io/utils/net"
 
-	kubectrmgroptions "open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/options"
-	controlplanefeatures "open-cluster-management.io/multicluster-controlplane/pkg/features"
-
 	"open-cluster-management.io/multicluster-controlplane/pkg/certificate"
+	kubectrmgroptions "open-cluster-management.io/multicluster-controlplane/pkg/controllers/kubecontroller/options"
 	"open-cluster-management.io/multicluster-controlplane/pkg/etcd"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/configs"
 )
@@ -113,8 +112,8 @@ type ServerRunOptions struct {
 	// SelfManagementClusterName is the name of self management cluster, by default, it's local-cluster
 	SelfManagementClusterName string
 
-	// ClusterAutoApprovalUsers is a bootstrap user list whose cluster registration requests can be automatically approved
-	ClusterAutoApprovalUsers []string
+	// options for registration hub controller
+	RegistrationOpts *registrationhub.HubManagerOptions
 
 	// EnableDelegatingAuthentication delegate the authentication with controlplane hosing cluster
 	EnableDelegatingAuthentication bool
@@ -235,19 +234,23 @@ func NewServerRunOptions() *ServerRunOptions {
 		ServiceClusterIPRanges: "10.0.0.0/24",
 
 		ControlplaneConfigDir: "/controlplane_config",
+
+		RegistrationOpts: registrationhub.NewHubManagerOptions(),
 	}
 }
 
 func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
-	controlplanefeatures.DefaultControlplaneMutableFeatureGate.AddFlag(fs)
+	options.RegistrationOpts.AddFlags(fs)
+	options.SecureServing.AddFlags(fs)
+	options.Etcd.AddFlags(fs)
+	options.ExtraOptions.EmbeddedEtcd.AddFlags(fs)
+
 	fs.StringVar(&options.ControlplaneConfigDir, "controlplane-config-dir", options.ControlplaneConfigDir,
 		"Path to the file directory contains minimum requried configurations for controlplane server.")
 	fs.BoolVar(&options.EnableSelfManagement, "self-management", options.EnableSelfManagement,
 		"Register the current controlplane as a self managed cluster.")
 	fs.StringVar(&options.SelfManagementClusterName, "self-management-cluster-name", options.SelfManagementClusterName,
 		"Name of the self managed cluster name.")
-	fs.StringArrayVar(&options.ClusterAutoApprovalUsers, "cluster-auto-approval-users", options.ClusterAutoApprovalUsers,
-		"A bootstrap user list whose cluster registration requests can be automatically approved.")
 	fs.BoolVar(&options.EnableDelegatingAuthentication, "delegating-authentication", options.EnableDelegatingAuthentication,
 		"Delegate authentication to the controlplane hosting cluster.")
 }

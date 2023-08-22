@@ -39,7 +39,7 @@ func NewServer(options options.ServerRunOptions) *server {
 
 	s.AddController("multicluster-controlplane-crd", ocmcontroller.InstallCRD)
 	s.AddController("multicluster-controlplane-registration-resource", ocmcontroller.InstallHubResource)
-	s.AddController("multicluster-controlplane-controllers", ocmcontroller.InstallControllers(options.ClusterAutoApprovalUsers))
+	s.AddController("multicluster-controlplane-controllers", ocmcontroller.InstallControllers(options))
 	s.AddController("multicluster-controlplane-selfmanagement", ocmcontroller.InstallSelfManagementCluster(options))
 	if options.Authentication.DelegatingAuthenticatorConfig != nil {
 		s.AddController("multicluster-controlplane-authentication-delegator",

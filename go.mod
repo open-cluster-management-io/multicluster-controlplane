@@ -7,7 +7,6 @@ require (
 	github.com/onsi/gomega v1.27.7
 	github.com/openshift/client-go v0.0.0-20230120202327-72f107311084
 	github.com/openshift/library-go v0.0.0-20230321160537-6ac65c5454f9
-	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.2
@@ -24,18 +23,18 @@ require (
 	k8s.io/kube-aggregator v0.27.2
 	k8s.io/kube-controller-manager v0.27.2
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
-	k8s.io/kubernetes v1.27.2
+	k8s.io/kubernetes v1.27.3
 	k8s.io/metrics v0.27.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	open-cluster-management.io/api v0.11.1-0.20230609103311-088e8fe86139
-	open-cluster-management.io/ocm v0.0.0-20230614150343-ecfb6c08880e
+	open-cluster-management.io/api v0.11.1-0.20230801071340-86e3c7b4d5da
+	open-cluster-management.io/ocm v0.11.1-0.20230821032812-4227c8f68ce5
 	sigs.k8s.io/controller-runtime v0.15.0
 )
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
+	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -137,16 +136,34 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.2.0 // indirect
+	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
+	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/cel-go v0.12.6 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/huandu/xstrings v1.3.3 // indirect
 	github.com/jonboulle/clockwork v0.3.0 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/prometheus/client_golang v1.15.1 // indirect
+	github.com/shopspring/decimal v1.2.0 // indirect
+	github.com/spf13/cast v1.4.1 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasttemplate v1.2.2 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.35.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.35.1 // indirect
 	go.opentelemetry.io/otel v1.10.0 // indirect
@@ -157,11 +174,13 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.3.0 // indirect
+	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
+	helm.sh/helm/v3 v3.11.1 // indirect
+	open-cluster-management.io/addon-framework v0.7.1-0.20230803002113-eea76f8f5ad7 // indirect
 )
 
 // replace these repos because of imported k8s.io/kubernetes

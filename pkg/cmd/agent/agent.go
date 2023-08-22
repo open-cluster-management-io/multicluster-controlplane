@@ -3,6 +3,9 @@ package agent
 
 import (
 	"context"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	ocmfeature "open-cluster-management.io/api/feature"
+	"open-cluster-management.io/ocm/pkg/features"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apiserver/pkg/server"
@@ -10,6 +13,11 @@ import (
 
 	"open-cluster-management.io/multicluster-controlplane/pkg/agent"
 )
+
+func init() {
+	utilruntime.Must(features.SpokeMutableFeatureGate.Add(ocmfeature.DefaultSpokeRegistrationFeatureGates))
+	utilruntime.Must(features.SpokeMutableFeatureGate.Add(ocmfeature.DefaultSpokeWorkFeatureGates))
+}
 
 func NewAgent() *cobra.Command {
 	agentOptions := agent.NewAgentOptions()
@@ -40,6 +48,7 @@ func NewAgent() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
+	features.SpokeMutableFeatureGate.AddFlag(flags)
 	agentOptions.AddFlags(flags)
 	return cmd
 }
