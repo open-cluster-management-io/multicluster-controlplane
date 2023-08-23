@@ -3,7 +3,6 @@ package ocmcontroller
 
 import (
 	"context"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	ocmfeature "open-cluster-management.io/api/feature"
@@ -110,8 +109,8 @@ func runControllers(ctx context.Context,
 	addOnInformers := addoninformers.NewSharedInformerFactory(addOnClient, 10*time.Minute)
 	dynamicInformers := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 10*time.Minute)
 
-	go utilruntime.Must(
-		opts.RunControllerManagerWithInformers(
+	go func() {
+		if err := opts.RunControllerManagerWithInformers(
 			ctx,
 			controllerContext,
 			kubeClient,
@@ -121,37 +120,52 @@ func runControllers(ctx context.Context,
 			clusterInformers,
 			workInformers,
 			addOnInformers,
-		))
+		); err != nil {
+			klog.Fatal(err)
+		}
+	}()
 
-	go utilruntime.Must(placementcontrollers.RunControllerManagerWithInformers(
-		ctx,
-		controllerContext,
-		kubeClient,
-		clusterClient,
-		clusterInformers,
-	))
-
-	if features.HubMutableFeatureGate.Enabled(ocmfeature.ManifestWorkReplicaSet) {
-		go utilruntime.Must(workhub.RunControllerManagerWithInformers(
-			ctx,
-			controllerContext,
-			workClient,
-			workInformers,
-			clusterInformers,
-		))
-	}
-
-	if features.HubMutableFeatureGate.Enabled(ocmfeature.AddonManagement) {
-		go utilruntime.Must(addonhub.RunControllerManagerWithInformers(
+	go func() {
+		if err := placementcontrollers.RunControllerManagerWithInformers(
 			ctx,
 			controllerContext,
 			kubeClient,
-			addOnClient,
+			clusterClient,
 			clusterInformers,
-			addOnInformers,
-			workInformers,
-			dynamicInformers,
-		))
+		); err != nil {
+			klog.Fatal(err)
+		}
+	}()
+
+	if features.HubMutableFeatureGate.Enabled(ocmfeature.ManifestWorkReplicaSet) {
+		go func() {
+			if err := workhub.RunControllerManagerWithInformers(
+				ctx,
+				controllerContext,
+				workClient,
+				workInformers,
+				clusterInformers,
+			); err != nil {
+				klog.Fatal(err)
+			}
+		}()
+	}
+
+	if features.HubMutableFeatureGate.Enabled(ocmfeature.AddonManagement) {
+		go func() {
+			if err := addonhub.RunControllerManagerWithInformers(
+				ctx,
+				controllerContext,
+				kubeClient,
+				addOnClient,
+				clusterInformers,
+				addOnInformers,
+				workInformers,
+				dynamicInformers,
+			); err != nil {
+				klog.Fatal(err)
+			}
+		}()
 	}
 
 	go kubeInformers.Start(ctx.Done())
