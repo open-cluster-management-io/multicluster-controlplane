@@ -3,8 +3,10 @@ package controller
 
 import (
 	"fmt"
-
 	"github.com/spf13/cobra"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	ocmfeature "open-cluster-management.io/api/feature"
+	"open-cluster-management.io/ocm/pkg/features"
 
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
@@ -15,6 +17,12 @@ import (
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/version/verflag"
 )
+
+func init() {
+	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubWorkFeatureGates))
+	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubRegistrationFeatureGates))
+	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubAddonManagerFeatureGates))
+}
 
 func NewController() *cobra.Command {
 	options := options.NewServerRunOptions()
@@ -50,6 +58,7 @@ func NewController() *cobra.Command {
 		},
 	}
 
+	features.HubMutableFeatureGate.AddFlag(cmd.Flags())
 	options.AddFlags(cmd.Flags())
 	return cmd
 }
