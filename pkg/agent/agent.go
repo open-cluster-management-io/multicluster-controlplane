@@ -5,6 +5,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/pflag"
 
@@ -69,6 +70,7 @@ func NewAgentOptions() *AgentOptions {
 		RegistrationAgentOpts: registrationspoke.NewSpokeAgentOptions(),
 		WorkAgentOpts:         workspoke.NewWorkloadAgentOptions(),
 		CommonOpts:            commonoptions.NewAgentOptions(),
+		eventRecorder:         util.NewLoggingRecorder("managed-cluster-agents"),
 	}
 }
 
