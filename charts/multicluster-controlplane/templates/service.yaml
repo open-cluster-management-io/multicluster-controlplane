@@ -12,6 +12,9 @@ spec:
   type: ClusterIP
   {{- else if eq .Values.loadbalancer.enabled true }}
   type: LoadBalancer
+  {{- if .Values.loadbalancer.ip }}
+  loadBalancerIP: {{ .Values.loadbalancer.ip }}
+  {{- end }}
   {{- else if eq .Values.nodeport.enabled true }}
   type: NodePort
   {{- end }}

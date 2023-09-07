@@ -38,6 +38,7 @@ route:
 
 loadbalancer:
   enabled: false
+  ip: ""
 
 nodeport:
   enabled: false
