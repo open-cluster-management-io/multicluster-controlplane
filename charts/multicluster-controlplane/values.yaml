@@ -20,12 +20,13 @@ apiserver:
   externalHostname: ""
   ca: ""
   cakey: ""
+  generateCA: false
 etcd:
   mode: "embed"
   servers: []
   ca: ""
-  cert: "" 
-  certkey: "" 
+  cert: ""
+  certkey: ""
 
 pvc:
   storageCapacity: 1Gi
