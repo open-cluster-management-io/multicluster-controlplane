@@ -18,6 +18,7 @@ enableDelegatingAuthentication: false
 
 apiserver:
   externalHostname: ""
+  externalPort: 443
   ca: ""
   cakey: ""
   generateCA: false
