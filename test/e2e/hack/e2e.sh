@@ -38,18 +38,10 @@ mkdir -p ${cluster_dir}
 mkdir -p ${agent_deploy_dir}
 
 cluster="e2e-test"
-external_host_ip="127.0.0.1"
 external_host_port="30443"
 kubeconfig="${cluster_dir}/${cluster}.kubeconfig"
-cat << EOF | ${KIND} create cluster --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig --name ${cluster} --config=-
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-  extraPortMappings:
-  - containerPort: ${external_host_port}
-    hostPort: 443
-EOF
+${KIND} create cluster --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig --name ${cluster}
+external_host_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${cluster}-control-plane)
 
 echo "Load $IMAGE_NAME to the cluster $cluster ..."
 ${KIND} load docker-image $IMAGE_NAME --name $cluster
@@ -89,7 +81,7 @@ ${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets mul
 
 
 # wait the controlplane is ready
-wait_for_url "https://127.0.0.1/readyz"
+wait_for_url "https://${external_host_ip}:${external_host_port}/readyz"
 
 
 echo "Deploy standalone controlplane agents ..."
