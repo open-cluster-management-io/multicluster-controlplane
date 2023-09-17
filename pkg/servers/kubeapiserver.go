@@ -96,6 +96,9 @@ func createKubeAPIServerConfig(options options.ServerRunOptions) (
 			APIServerServiceIP:   options.APIServerServiceIP,
 			APIServerServicePort: 443,
 
+			ServiceIPRange:          options.PrimaryServiceClusterIPRange,
+			SecondaryServiceIPRange: options.SecondaryServiceClusterIPRange,
+
 			EndpointReconcilerType: reconcilers.Type(options.EndpointReconcilerType),
 			MasterCount:            1,
 

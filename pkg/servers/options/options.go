@@ -117,6 +117,9 @@ type ServerRunOptions struct {
 
 	// EnableDelegatingAuthentication delegate the authentication with controlplane hosing cluster
 	EnableDelegatingAuthentication bool
+
+	ProxyClientCertFile string
+	ProxyClientKeyFile  string
 }
 
 type ExtraOptions struct {
@@ -231,7 +234,8 @@ func NewServerRunOptions() *ServerRunOptions {
 
 		KubeControllerManagerOptions: kubeControllerManagerOptions,
 
-		ServiceClusterIPRanges: "10.0.0.0/24",
+		ServiceClusterIPRanges:  "10.0.0.0/8",
+		EnableAggregatorRouting: false,
 
 		ControlplaneConfigDir: "/controlplane_config",
 
@@ -253,6 +257,22 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 		"Name of the self managed cluster name.")
 	fs.BoolVar(&options.EnableDelegatingAuthentication, "delegating-authentication", options.EnableDelegatingAuthentication,
 		"Delegate authentication to the controlplane hosting cluster.")
+
+	if options.Authentication.RequestHeader != nil {
+		options.Authentication.RequestHeader.AddFlags(fs)
+	}
+	fs.StringVar(&options.ProxyClientCertFile, "proxy-client-cert-file", options.ProxyClientCertFile, ""+
+		"Client certificate used to prove the identity of the aggregator or kube-apiserver "+
+		"when it must call out during a request. This includes proxying requests to a user "+
+		"api-server and calling out to webhook admission plugins. It is expected that this "+
+		"cert includes a signature from the CA in the --requestheader-client-ca-file flag. "+
+		"That CA is published in the 'extension-apiserver-authentication' configmap in "+
+		"the kube-system namespace. Components receiving calls from kube-aggregator should "+
+		"use that CA to perform their half of the mutual TLS verification.")
+	fs.StringVar(&options.ProxyClientKeyFile, "proxy-client-key-file", options.ProxyClientKeyFile, ""+
+		"Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver "+
+		"when it must call out during a request. This includes proxying requests to a user "+
+		"api-server and calling out to webhook admission plugins.")
 }
 
 // Complete set default Options.
