@@ -3,6 +3,8 @@
 
 The `multicluster-controlplane` is a lightweight Open Cluster Manager (OCM) control plane that is easy to install and has a small footprint. It is more efficient, lightweight, and cost-effective, while improving OCM scalability and support for edge scenarios.
 
+![Architecture Diagram](./arch.png)
+
 Some of the features are:
 
 - Started the OCM hub control plane in standalone mode.
