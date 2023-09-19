@@ -186,9 +186,20 @@ helm uninstall -n multicluster-controlplane multicluster-controlplane
 
 You can use clusteradm to access and join a cluster.
 
+1. Get the join token from controlplane:
 ```bash
 clusteradm --kubeconfig=<controlplane kubeconfig file> get token --use-bootstrap-token
-clusteradm join --hub-token <controlplane token> --hub-apiserver <controlplane apiserver> --cluster-name <cluster name>
+```
+
+2. Join a cluster using controlplane agent is now available in clusteradm(see this [PR](https://github.com/open-cluster-management-io/clusteradm/pull/338) for more details, you should build the latest code).
+Add the `--singleton` flag in join command to use the controlplane agent, rather than klusterlet, to join a cluster:
+
+```bash
+clusteradm join --hub-token <controlplane token> --hub-apiserver <controlplane apiserver> --cluster-name <cluster name> --singleton
+```
+
+3. Access the controlplane apiserver to accept the managed cluster:
+```bash
 clusteradm --kubeconfig=<controlplane kubeconfig file> accept --clusters <cluster name>
 ```
 
