@@ -28,6 +28,7 @@ LOG_DIR=${LOG_DIR:-"/tmp"}
 APISERVER_LOG=${LOG_DIR}/kube-apiserver.log
 
 mkdir -p ${DATA_DIR}
+chmod 700 ${DATA_DIR}
 
 function test_apiserver_off {
     # For the common local scenario, fail fast if server is already running.
