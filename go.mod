@@ -11,23 +11,23 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.2
 	go.etcd.io/etcd/server/v3 v3.5.7
-	k8s.io/api v0.27.2
-	k8s.io/apiextensions-apiserver v0.27.2
-	k8s.io/apimachinery v0.27.2
-	k8s.io/apiserver v0.27.2
-	k8s.io/client-go v0.27.2
-	k8s.io/cluster-bootstrap v0.27.2
-	k8s.io/component-base v0.27.2
-	k8s.io/controller-manager v0.27.2
+	k8s.io/api v0.27.3
+	k8s.io/apiextensions-apiserver v0.27.3
+	k8s.io/apimachinery v0.27.3
+	k8s.io/apiserver v0.27.3
+	k8s.io/client-go v0.27.3
+	k8s.io/cluster-bootstrap v0.27.3
+	k8s.io/component-base v0.27.3
+	k8s.io/controller-manager v0.27.3
 	k8s.io/klog/v2 v2.90.1
-	k8s.io/kube-aggregator v0.27.2
-	k8s.io/kube-controller-manager v0.27.2
+	k8s.io/kube-aggregator v0.27.3
+	k8s.io/kube-controller-manager v0.27.3
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/kubernetes v1.27.3
-	k8s.io/metrics v0.27.2
+	k8s.io/metrics v0.27.3
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	open-cluster-management.io/api v0.11.1-0.20230801071340-86e3c7b4d5da
-	open-cluster-management.io/ocm v0.11.1-0.20230821032812-4227c8f68ce5
+	open-cluster-management.io/api v0.12.0
+	open-cluster-management.io/ocm v0.12.0
 	sigs.k8s.io/controller-runtime v0.15.0
 )
 
@@ -103,8 +103,8 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/cloud-provider v0.27.2 // indirect
-	k8s.io/component-helpers v0.27.2 // indirect
+	k8s.io/cloud-provider v0.27.3 // indirect
+	k8s.io/component-helpers v0.27.3 // indirect
 	k8s.io/kubelet v0.0.0 // indirect
 	k8s.io/mount-utils v0.25.4 // indirect
 	k8s.io/pod-security-admission v0.0.0 // indirect
@@ -132,7 +132,7 @@ require (
 	golang.org/x/oauth2 v0.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20221202195650-67e5cbc046fd // indirect
 	google.golang.org/grpc v1.51.0 // indirect
-	k8s.io/kms v0.27.2 // indirect
+	k8s.io/kms v0.27.3 // indirect
 )
 
 require (
@@ -180,26 +180,24 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	helm.sh/helm/v3 v3.11.1 // indirect
-	open-cluster-management.io/addon-framework v0.7.1-0.20230803002113-eea76f8f5ad7 // indirect
+	open-cluster-management.io/addon-framework v0.8.0 // indirect
 )
 
 // replace these repos because of imported k8s.io/kubernetes
 replace (
-	k8s.io/cli-runtime => k8s.io/cli-runtime v0.27.2
-	k8s.io/code-generator => k8s.io/code-generator v0.27.2
-	k8s.io/component-helpers => k8s.io/component-helpers v0.27.2
-	k8s.io/controller-manager => k8s.io/controller-manager v0.27.2
-	k8s.io/cri-api => k8s.io/cri-api v0.27.2
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.27.2
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.27.2
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.27.2
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.27.2
-	k8s.io/kubectl => k8s.io/kubectl v0.27.2
-	k8s.io/kubelet => k8s.io/kubelet v0.27.2
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.27.2
-	k8s.io/mount-utils => k8s.io/mount-utils v0.27.2
-	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.27.2
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.27.2
+	k8s.io/cli-runtime => k8s.io/cli-runtime v0.27.3
+	k8s.io/code-generator => k8s.io/code-generator v0.27.3
+	k8s.io/component-helpers => k8s.io/component-helpers v0.27.3
+	k8s.io/controller-manager => k8s.io/controller-manager v0.27.3
+	k8s.io/cri-api => k8s.io/cri-api v0.27.3
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.27.3
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.27.3
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.27.3
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.27.3
+	k8s.io/kubectl => k8s.io/kubectl v0.27.3
+	k8s.io/kubelet => k8s.io/kubelet v0.27.3
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.27.3
+	k8s.io/mount-utils => k8s.io/mount-utils v0.27.3
+	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.27.3
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.27.3
 )
-
-exclude go.opentelemetry.io/otel/exporters/otlp v0.27.0
