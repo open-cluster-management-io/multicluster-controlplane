@@ -22,13 +22,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
+	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 
 	// add the kubernetes feature gates
 	_ "k8s.io/kubernetes/pkg/features"
@@ -257,22 +257,6 @@ func (options *ServerRunOptions) AddFlags(fs *pflag.FlagSet) {
 		"Name of the self managed cluster name.")
 	fs.BoolVar(&options.EnableDelegatingAuthentication, "delegating-authentication", options.EnableDelegatingAuthentication,
 		"Delegate authentication to the controlplane hosting cluster.")
-
-	if options.Authentication.RequestHeader != nil {
-		options.Authentication.RequestHeader.AddFlags(fs)
-	}
-	fs.StringVar(&options.ProxyClientCertFile, "proxy-client-cert-file", options.ProxyClientCertFile, ""+
-		"Client certificate used to prove the identity of the aggregator or kube-apiserver "+
-		"when it must call out during a request. This includes proxying requests to a user "+
-		"api-server and calling out to webhook admission plugins. It is expected that this "+
-		"cert includes a signature from the CA in the --requestheader-client-ca-file flag. "+
-		"That CA is published in the 'extension-apiserver-authentication' configmap in "+
-		"the kube-system namespace. Components receiving calls from kube-aggregator should "+
-		"use that CA to perform their half of the mutual TLS verification.")
-	fs.StringVar(&options.ProxyClientKeyFile, "proxy-client-key-file", options.ProxyClientKeyFile, ""+
-		"Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver "+
-		"when it must call out during a request. This includes proxying requests to a user "+
-		"api-server and calling out to webhook admission plugins.")
 }
 
 // Complete set default Options.
@@ -497,6 +481,16 @@ func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConf
 		o.Etcd.StorageConfig.Transport.CertFile = cfg.Etcd.CertFile
 		o.Etcd.StorageConfig.Transport.KeyFile = cfg.Etcd.KeyFile
 		o.Etcd.StorageConfig.Prefix = cfg.Etcd.Prefix
+	}
+
+	o.ProxyClientCertFile = cfg.Aggregator.ProxyClientCertFile
+	o.ProxyClientKeyFile = cfg.Aggregator.ProxyClientKeyFile
+	if o.Authentication.RequestHeader != nil {
+		o.Authentication.RequestHeader.ClientCAFile = cfg.Aggregator.RequestHeaderClientCAFile
+		o.Authentication.RequestHeader.UsernameHeaders = cfg.Aggregator.RequestHeaderUsernameHeaders
+		o.Authentication.RequestHeader.GroupHeaders = cfg.Aggregator.RequestHeaderGroupHeaders
+		o.Authentication.RequestHeader.ExtraHeaderPrefixes = cfg.Aggregator.RequestHeaderExtraHeaderPrefixes
+		o.Authentication.RequestHeader.AllowedNames = cfg.Aggregator.RequestHeaderAllowedNames
 	}
 
 	o.SecureServing.BindPort = bindPort

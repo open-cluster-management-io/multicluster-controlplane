@@ -35,13 +35,6 @@ spec:
         {{- if eq .Values.enableDelegatingAuthentication true }}
         - "--delegating-authentication"
         {{- end }}
-        - "--proxy-client-cert-file=/controlplane_config/proxy-client.crt"
-        - "--proxy-client-key-file=/controlplane_config/proxy-client.key"
-        - "--requestheader-client-ca-file=/controlplane_config/requestheader-client-ca.crt"
-        - "--requestheader-allowed-names=front-proxy-client"
-        - "--requestheader-extra-headers-prefix=X-Remote-Extra-"
-        - "--requestheader-group-headers=X-Remote-Group"
-        - "--requestheader-username-headers=X-Remote-User"
         {{- if .Values.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 10 }}
