@@ -22,9 +22,10 @@ const (
 )
 
 type ControlplaneRunConfig struct {
-	DataDirectory string          `yaml:"dataDirectory"`
-	Apiserver     ApiserverConfig `yaml:"apiserver"`
-	Etcd          EtcdConfig      `yaml:"etcd"`
+	DataDirectory string           `yaml:"dataDirectory"`
+	Apiserver     ApiserverConfig  `yaml:"apiserver"`
+	Etcd          EtcdConfig       `yaml:"etcd"`
+	Aggregator    AggregatorConfig `yaml:"aggregator"`
 }
 
 type ApiserverConfig struct {
@@ -41,6 +42,16 @@ type EtcdConfig struct {
 	CertFile string   `yaml:"certFile"`
 	KeyFile  string   `yaml:"keyFile"`
 	Prefix   string   `yaml:"prefix"`
+}
+
+type AggregatorConfig struct {
+	ProxyClientCertFile              string   `yaml:"proxyClientCertFile"`
+	ProxyClientKeyFile               string   `yaml:"proxyClientKeyFile"`
+	RequestHeaderClientCAFile        string   `yaml:"requestheaderClientCAFile"`
+	RequestHeaderUsernameHeaders     []string `yaml:"requestheaderUsernameHeaders"`
+	RequestHeaderGroupHeaders        []string `yaml:"requestheaderGroupHeaders"`
+	RequestHeaderExtraHeaderPrefixes []string `yaml:"requestheaderExtraHeadersPrefix"`
+	RequestHeaderAllowedNames        []string `yaml:"requestheaderAllowedNames"`
 }
 
 func LoadConfig(configDir string) (*ControlplaneRunConfig, error) {

@@ -89,8 +89,10 @@ func createAggregatorConfig(
 			SharedInformerFactory: externalInformers,
 		},
 		ExtraConfig: aggregatorapiserver.ExtraConfig{
-			ServiceResolver: serviceResolver,
-			ProxyTransport:  proxyTransport,
+			ProxyClientCertFile: genericOptions.ProxyClientCertFile,
+			ProxyClientKeyFile:  genericOptions.ProxyClientKeyFile,
+			ServiceResolver:     serviceResolver,
+			ProxyTransport:      proxyTransport,
 		},
 	}
 

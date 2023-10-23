@@ -22,13 +22,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
+	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 
 	// add the kubernetes feature gates
 	_ "k8s.io/kubernetes/pkg/features"
@@ -117,6 +117,9 @@ type ServerRunOptions struct {
 
 	// EnableDelegatingAuthentication delegate the authentication with controlplane hosing cluster
 	EnableDelegatingAuthentication bool
+
+	ProxyClientCertFile string
+	ProxyClientKeyFile  string
 }
 
 type ExtraOptions struct {
@@ -231,7 +234,8 @@ func NewServerRunOptions() *ServerRunOptions {
 
 		KubeControllerManagerOptions: kubeControllerManagerOptions,
 
-		ServiceClusterIPRanges: "10.0.0.0/24",
+		ServiceClusterIPRanges:  "10.0.0.0/8",
+		EnableAggregatorRouting: false,
 
 		ControlplaneConfigDir: "/controlplane_config",
 
@@ -477,6 +481,16 @@ func (o *ServerRunOptions) InitServerRunOptions(cfg *configs.ControlplaneRunConf
 		o.Etcd.StorageConfig.Transport.CertFile = cfg.Etcd.CertFile
 		o.Etcd.StorageConfig.Transport.KeyFile = cfg.Etcd.KeyFile
 		o.Etcd.StorageConfig.Prefix = cfg.Etcd.Prefix
+	}
+
+	o.ProxyClientCertFile = cfg.Aggregator.ProxyClientCertFile
+	o.ProxyClientKeyFile = cfg.Aggregator.ProxyClientKeyFile
+	if o.Authentication.RequestHeader != nil {
+		o.Authentication.RequestHeader.ClientCAFile = cfg.Aggregator.RequestHeaderClientCAFile
+		o.Authentication.RequestHeader.UsernameHeaders = cfg.Aggregator.RequestHeaderUsernameHeaders
+		o.Authentication.RequestHeader.GroupHeaders = cfg.Aggregator.RequestHeaderGroupHeaders
+		o.Authentication.RequestHeader.ExtraHeaderPrefixes = cfg.Aggregator.RequestHeaderExtraHeaderPrefixes
+		o.Authentication.RequestHeader.AllowedNames = cfg.Aggregator.RequestHeaderAllowedNames
 	}
 
 	o.SecureServing.BindPort = bindPort
