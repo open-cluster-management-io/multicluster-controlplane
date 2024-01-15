@@ -4,8 +4,11 @@ package servers
 import (
 	"fmt"
 
+	"k8s.io/apiserver/pkg/endpoints/discovery/aggregated"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
+	genericfeatures "k8s.io/apiserver/pkg/features"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/notfoundhandler"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/klog/v2"
@@ -95,6 +98,15 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 	kubeAPIServer, err := createKubeAPIServer(kubeAPIServerConfig, apiExtensionsServer.GenericAPIServer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create kubeapi server, %v", err)
+	}
+
+	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.AggregatedDiscoveryEndpoint) {
+		manager := kubeAPIServer.GenericAPIServer.AggregatedDiscoveryGroupManager
+		if manager == nil {
+			manager = aggregated.NewResourceManager("apis")
+		}
+		kubeAPIServer.GenericAPIServer.AggregatedDiscoveryGroupManager = manager
+		kubeAPIServer.GenericAPIServer.AggregatedLegacyDiscoveryGroupManager = aggregated.NewResourceManager("api")
 	}
 
 	// aggregator comes last in the chain
