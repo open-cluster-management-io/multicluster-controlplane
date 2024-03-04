@@ -5,16 +5,16 @@ bin_dir="/usr/bin"
 function check_golang() {
   export PATH=$PATH:/usr/local/go/bin
   if ! command -v go >/dev/null 2>&1; then
-    wget https://dl.google.com/go/go1.20.4.linux-amd64.tar.gz >/dev/null 2>&1
-    tar -C /usr/local/ -xvf go1.20.4.linux-amd64.tar.gz >/dev/null 2>&1
-    rm go1.20.3.linux-amd64.tar.gz
+    wget https://dl.google.com/go/go1.21.7.linux-amd64.tar.gz >/dev/null 2>&1
+    tar -C /usr/local/ -xvf go1.21.7.linux-amd64.tar.gz >/dev/null 2>&1
+    rm go1.21.7.linux-amd64.tar.gz
   fi
-  if [[ $(go version) < "go version go1.20" ]]; then
-    echo "go version is less than 1.20, update to 1.20"
+  if [[ $(go version) < "go version go1.21" ]]; then
+    echo "go version is less than 1.21, update to 1.21"
     rm -rf /usr/local/go
-    wget https://dl.google.com/go/go1.20.4.linux-amd64.tar.gz >/dev/null 2>&1
-    tar -C /usr/local/ -xvf go1.20.4.linux-amd64.tar.gz >/dev/null 2>&1
-    rm go1.20.4.linux-amd64.tar.gz
+    wget https://dl.google.com/go/go1.21.7.linux-amd64.tar.gz >/dev/null 2>&1
+    tar -C /usr/local/ -xvf go1.21.7.linux-amd64.tar.gz >/dev/null 2>&1
+    rm go1.21.7.linux-amd64.tar.gz
     sleep 2
   fi
   echo "go path: $(which go)"

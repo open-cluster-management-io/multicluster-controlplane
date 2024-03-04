@@ -1,5 +1,5 @@
 # Copyright Contributors to the Open Cluster Management project
-FROM golang:1.20 AS builder
+FROM golang:1.21 AS builder
 
 ARG OS=linux
 ARG ARCH=amd64

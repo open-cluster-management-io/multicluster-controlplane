@@ -22,15 +22,17 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/apis/apiserver"
+	apiservervalidation "k8s.io/apiserver/pkg/apis/apiserver/validation"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
 	"k8s.io/apiserver/pkg/authentication/group"
@@ -43,17 +45,21 @@ import (
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	"k8s.io/apiserver/pkg/server/egressselector"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	webhooktoken "k8s.io/apiserver/plugin/pkg/authenticator/token/webhook"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	v1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog/v2"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
+	"k8s.io/kubernetes/pkg/features"
 	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
 	authzmodes "k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
 	"k8s.io/kubernetes/plugin/pkg/auth/authenticator/token/bootstrap"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -426,16 +432,72 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 		}
 	}
 
-	if o.OIDC != nil {
-		ret.OIDCCAFile = o.OIDC.CAFile
-		ret.OIDCClientID = o.OIDC.ClientID
-		ret.OIDCGroupsClaim = o.OIDC.GroupsClaim
-		ret.OIDCGroupsPrefix = o.OIDC.GroupsPrefix
-		ret.OIDCIssuerURL = o.OIDC.IssuerURL
-		ret.OIDCUsernameClaim = o.OIDC.UsernameClaim
-		ret.OIDCUsernamePrefix = o.OIDC.UsernamePrefix
+	if o.OIDC != nil && len(o.OIDC.IssuerURL) > 0 && len(o.OIDC.ClientID) > 0 {
+		usernamePrefix := o.OIDC.UsernamePrefix
+
+		if o.OIDC.UsernamePrefix == "" && o.OIDC.UsernameClaim != "email" {
+			// Legacy CLI flag behavior. If a usernamePrefix isn't provided, prefix all claims other than "email"
+			// with the issuerURL.
+			//
+			// See https://github.com/kubernetes/kubernetes/issues/31380
+			usernamePrefix = o.OIDC.IssuerURL + "#"
+		}
+		if o.OIDC.UsernamePrefix == "-" {
+			// Special value indicating usernames shouldn't be prefixed.
+			usernamePrefix = ""
+		}
+
+		jwtAuthenticator := apiserver.JWTAuthenticator{
+			Issuer: apiserver.Issuer{
+				URL:       o.OIDC.IssuerURL,
+				Audiences: []string{o.OIDC.ClientID},
+			},
+			ClaimMappings: apiserver.ClaimMappings{
+				Username: apiserver.PrefixedClaimOrExpression{
+					Prefix: ptr.To(usernamePrefix),
+					Claim:  o.OIDC.UsernameClaim,
+				},
+			},
+		}
+
+		if len(o.OIDC.GroupsClaim) > 0 {
+			jwtAuthenticator.ClaimMappings.Groups = apiserver.PrefixedClaimOrExpression{
+				Prefix: ptr.To(o.OIDC.GroupsPrefix),
+				Claim:  o.OIDC.GroupsClaim,
+			}
+		}
+
+		if len(o.OIDC.CAFile) != 0 {
+			caContent, err := os.ReadFile(o.OIDC.CAFile)
+			if err != nil {
+				return kubeauthenticator.Config{}, err
+			}
+			jwtAuthenticator.Issuer.CertificateAuthority = string(caContent)
+		}
+
+		if len(o.OIDC.RequiredClaims) > 0 {
+			claimValidationRules := make([]apiserver.ClaimValidationRule, 0, len(o.OIDC.RequiredClaims))
+			for claim, value := range o.OIDC.RequiredClaims {
+				claimValidationRules = append(claimValidationRules, apiserver.ClaimValidationRule{
+					Claim:         claim,
+					RequiredValue: value,
+				})
+			}
+			jwtAuthenticator.ClaimValidationRules = claimValidationRules
+		}
+
+		authConfig := &apiserver.AuthenticationConfiguration{
+			JWT: []apiserver.JWTAuthenticator{jwtAuthenticator},
+		}
+
+		ret.AuthenticationConfig = authConfig
 		ret.OIDCSigningAlgs = o.OIDC.SigningAlgs
-		ret.OIDCRequiredClaims = o.OIDC.RequiredClaims
+	}
+
+	if ret.AuthenticationConfig != nil {
+		if err := apiservervalidation.ValidateAuthenticationConfiguration(ret.AuthenticationConfig).ToAggregate(); err != nil {
+			return kubeauthenticator.Config{}, err
+		}
 	}
 
 	if o.RequestHeader != nil {
@@ -480,7 +542,7 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 }
 
 // ApplyTo requires already applied OpenAPIConfig and EgressSelector if present.
-func (o *BuiltInAuthenticationOptions) ApplyTo(authInfo *genericapiserver.AuthenticationInfo, secureServing *genericapiserver.SecureServingInfo, egressSelector *egressselector.EgressSelector, openAPIConfig *openapicommon.Config, openAPIV3Config *openapicommon.Config, extclient kubernetes.Interface, versionedInformer informers.SharedInformerFactory) error {
+func (o *BuiltInAuthenticationOptions) ApplyTo(authInfo *genericapiserver.AuthenticationInfo, secureServing *genericapiserver.SecureServingInfo, egressSelector *egressselector.EgressSelector, openAPIConfig *openapicommon.Config, openAPIV3Config *openapicommon.OpenAPIV3Config, extclient kubernetes.Interface, versionedInformer informers.SharedInformerFactory) error {
 	if o == nil {
 		return nil
 	}
@@ -510,18 +572,25 @@ func (o *BuiltInAuthenticationOptions) ApplyTo(authInfo *genericapiserver.Authen
 		authInfo.APIAudiences = authenticator.Audiences(o.ServiceAccounts.Issuers)
 	}
 
+	var nodeLister v1listers.NodeLister
+	if utilfeature.DefaultFeatureGate.Enabled(features.ServiceAccountTokenNodeBindingValidation) {
+		nodeLister = versionedInformer.Core().V1().Nodes().Lister()
+	}
 	authenticatorConfig.ServiceAccountTokenGetter = serviceaccountcontroller.NewGetterFromClient(
 		extclient,
 		versionedInformer.Core().V1().Secrets().Lister(),
 		versionedInformer.Core().V1().ServiceAccounts().Lister(),
 		versionedInformer.Core().V1().Pods().Lister(),
+		nodeLister,
 	)
 
 	authenticatorConfig.SecretsWriter = extclient.CoreV1()
 
-	authenticatorConfig.BootstrapTokenAuthenticator = bootstrap.NewTokenAuthenticator(
-		versionedInformer.Core().V1().Secrets().Lister().Secrets(metav1.NamespaceSystem),
-	)
+	if authenticatorConfig.BootstrapToken {
+		authenticatorConfig.BootstrapTokenAuthenticator = bootstrap.NewTokenAuthenticator(
+			versionedInformer.Core().V1().Secrets().Lister().Secrets(metav1.NamespaceSystem),
+		)
+	}
 
 	if egressSelector != nil {
 		egressDialer, err := egressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
@@ -533,7 +602,8 @@ func (o *BuiltInAuthenticationOptions) ApplyTo(authInfo *genericapiserver.Authen
 
 	authenticators := []authenticator.Request{}
 
-	authenticator, securityDefinitions, err := authenticatorConfig.New()
+	// var openAPIV3SecuritySchemes spec3.SecuritySchemes
+	authenticator, openAPIV2SecurityDefinitions, openAPIV3SecuritySchemes, err := authenticatorConfig.New()
 	if err != nil {
 		return err
 	}
@@ -550,9 +620,9 @@ func (o *BuiltInAuthenticationOptions) ApplyTo(authInfo *genericapiserver.Authen
 	}
 
 	authInfo.Authenticator = group.NewAuthenticatedGroupAdder(union.New(authenticators...))
-	openAPIConfig.SecurityDefinitions = securityDefinitions
+	openAPIConfig.SecurityDefinitions = openAPIV2SecurityDefinitions
 	if openAPIV3Config != nil {
-		openAPIV3Config.SecurityDefinitions = openAPIConfig.SecurityDefinitions
+		openAPIV3Config.SecuritySchemes = openAPIV3SecuritySchemes
 	}
 
 	return nil

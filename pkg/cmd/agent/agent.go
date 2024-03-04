@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ocmfeature "open-cluster-management.io/api/feature"
 	"open-cluster-management.io/ocm/pkg/features"
@@ -20,7 +21,8 @@ func init() {
 }
 
 func NewAgent() *cobra.Command {
-	agentOptions := agent.NewAgentOptions()
+	agentOptions := agent.NewAgentOptions().
+		WithWorkloadSourceDriverConfig("/spoke/hub-kubeconfig/kubeconfig")
 
 	cmd := &cobra.Command{
 		Use:   "agent",

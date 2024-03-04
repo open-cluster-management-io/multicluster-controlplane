@@ -3,11 +3,13 @@ package ocmcontroller
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/metadata"
 	ocmfeature "open-cluster-management.io/api/feature"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
-	"time"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -84,6 +86,11 @@ func runControllers(ctx context.Context,
 		OperatorNamespace: "open-cluster-management-hub",
 	}
 
+	metadataClient, err := metadata.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
+
 	clusterClient, err := clusterv1client.NewForConfig(restConfig)
 	if err != nil {
 		return err
@@ -114,6 +121,7 @@ func runControllers(ctx context.Context,
 			ctx,
 			controllerContext,
 			kubeClient,
+			metadataClient,
 			clusterClient,
 			addOnClient,
 			kubeInformers,

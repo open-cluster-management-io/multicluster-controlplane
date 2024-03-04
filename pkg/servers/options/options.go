@@ -46,7 +46,7 @@ import (
 	"k8s.io/klog/v2"
 	aggregatorscheme "k8s.io/kube-aggregator/pkg/apiserver/scheme"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
-	"k8s.io/kubernetes/pkg/controlplane"
+	"k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 	"k8s.io/kubernetes/pkg/controlplane/reconcilers"
 	"k8s.io/kubernetes/pkg/kubeapiserver"
 	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
@@ -151,7 +151,6 @@ func NewServerRunOptions() *ServerRunOptions {
 
 	// --enable-priority-and-fairness="false"
 	genericServerRunOptions := genericoptions.NewServerRunOptions()
-	genericServerRunOptions.EnablePriorityAndFairness = false
 
 	// --storage-backend="etcd3"
 	etcdOptions.StorageConfig.Type = "etcd3"
@@ -163,6 +162,7 @@ func NewServerRunOptions() *ServerRunOptions {
 	// --profiling=false
 	features := genericoptions.NewFeatureOptions()
 	features.EnableProfiling = false
+	features.EnablePriorityAndFairness = false
 
 	// --enable-admission-plugins
 	// --disable-admission-plugins=""
@@ -289,7 +289,7 @@ func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
 	if len(serviceClusterIPRangeList) == 0 {
 		var primaryServiceClusterCIDR net.IPNet
 		var err error
-		if s.PrimaryServiceClusterIPRange, s.APIServerServiceIP, err = controlplane.ServiceIPRange(primaryServiceClusterCIDR); err != nil {
+		if s.PrimaryServiceClusterIPRange, s.APIServerServiceIP, err = options.ServiceIPRange(primaryServiceClusterCIDR); err != nil {
 			return fmt.Errorf("error determining service IP ranges: %v", err)
 		}
 		s.SecondaryServiceClusterIPRange = net.IPNet{}
@@ -298,7 +298,7 @@ func (s *ServerRunOptions) Complete(stopCh <-chan struct{}) error {
 	if err != nil {
 		return fmt.Errorf("service-cluster-ip-range[0] is not a valid cidr")
 	}
-	if s.PrimaryServiceClusterIPRange, s.APIServerServiceIP, err = controlplane.ServiceIPRange(*primaryServiceClusterCIDR); err != nil {
+	if s.PrimaryServiceClusterIPRange, s.APIServerServiceIP, err = options.ServiceIPRange(*primaryServiceClusterCIDR); err != nil {
 		return fmt.Errorf("error determining service IP ranges for primary service cidr: %v", err)
 	}
 	// user provided at least two entries
