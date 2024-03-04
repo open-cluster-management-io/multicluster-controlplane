@@ -107,7 +107,7 @@ func BuildKubeSystemResources(ctx context.Context, config server.Config, kubeCli
 
 		return true, nil
 	}); err != nil {
-		klog.Errorf("failed to prepare clusterroles': %w", err)
+		klog.Errorf("failed to prepare clusterroles': %v", err)
 	}
 
 	// prepare clusterrolebindings
@@ -158,7 +158,7 @@ func BuildKubeSystemResources(ctx context.Context, config server.Config, kubeCli
 
 		return true, nil
 	}); err != nil {
-		klog.Errorf("failed to prepare clusterrolebindings: %w", err)
+		klog.Errorf("failed to prepare clusterrolebindings: %v", err)
 	}
 
 	return nil

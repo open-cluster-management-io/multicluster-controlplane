@@ -82,7 +82,7 @@ func WaitFOROCMCRDsReady(ctx context.Context, crdClient apiextensionsclient.Inte
 
 		return true, nil
 	}); err != nil {
-		klog.Errorf("ocm crds are not ready, %w", err)
+		klog.Errorf("ocm crds are not ready, %v", err)
 		return false
 	}
 
