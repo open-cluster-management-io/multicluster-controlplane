@@ -25,8 +25,9 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/component-base/featuregate"
 )
 
@@ -76,7 +77,8 @@ func (a *AdmissionOptions) Validate() []error {
 func (a *AdmissionOptions) ApplyTo(
 	c *server.Config,
 	informers informers.SharedInformerFactory,
-	kubeAPIServerClientConfig *rest.Config,
+	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface,
 	features featuregate.FeatureGate,
 	pluginInitializers ...admission.PluginInitializer,
 ) error {
@@ -84,5 +86,5 @@ func (a *AdmissionOptions) ApplyTo(
 		return nil
 	}
 
-	return a.GenericAdmission.ApplyTo(c, informers, kubeAPIServerClientConfig, features, pluginInitializers...)
+	return a.GenericAdmission.ApplyTo(c, informers, kubeClient, dynamicClient, features, pluginInitializers...)
 }

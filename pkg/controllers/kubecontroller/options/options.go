@@ -98,7 +98,7 @@ func (s *KubeControllerManagerOptions) Flags() cliflag.NamedFlagSets {
 
 // ApplyTo fills up controller manager config with options.
 func (s *KubeControllerManagerOptions) ApplyTo(c *kubecontrollerconfig.Config) error {
-	if err := s.Generic.ApplyTo(&c.ComponentConfig.Generic); err != nil {
+	if err := s.Generic.ApplyTo(&c.ComponentConfig.Generic, s.Generic.Controllers, []string{""}, map[string]string{}); err != nil {
 		return err
 	}
 

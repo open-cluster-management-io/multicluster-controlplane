@@ -73,7 +73,7 @@ func (s *server) AddController(name string, controller controllers.Controller) {
 
 // CreateServerChain creates the apiservers connected via delegation.
 func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config, *aggregatorapiserver.APIAggregator, error) {
-	kubeAPIServerConfig, serviceResolver, pluginInitializer, err := createKubeAPIServerConfig(o)
+	kubeAPIServerConfig, serviceResolver, _, err := createKubeAPIServerConfig(o)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create kubeapi server config, %v", err)
 	}
@@ -82,7 +82,7 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 	apiExtensionsConfig, err := createAPIExtensionsConfig(
 		*kubeAPIServerConfig.GenericConfig,
 		kubeAPIServerConfig.ExtraConfig.VersionedInformers,
-		pluginInitializer, &o, 1, serviceResolver,
+		&o, 1, serviceResolver,
 		webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeAPIServerConfig.ExtraConfig.ProxyTransport, kubeAPIServerConfig.GenericConfig.EgressSelector, kubeAPIServerConfig.GenericConfig.LoopbackClientConfig, kubeAPIServerConfig.GenericConfig.TracerProvider))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create apiextensions config, %v", err)
@@ -110,7 +110,7 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 	}
 
 	// aggregator comes last in the chain
-	aggregatorConfig, err := createAggregatorConfig(*kubeAPIServerConfig.GenericConfig, &o, kubeAPIServerConfig.ExtraConfig.VersionedInformers, serviceResolver, kubeAPIServerConfig.ExtraConfig.ProxyTransport, pluginInitializer)
+	aggregatorConfig, err := createAggregatorConfig(*kubeAPIServerConfig.GenericConfig, &o, kubeAPIServerConfig.ExtraConfig.VersionedInformers, serviceResolver, kubeAPIServerConfig.ExtraConfig.ProxyTransport)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create aggregator config, %v", err)
 	}

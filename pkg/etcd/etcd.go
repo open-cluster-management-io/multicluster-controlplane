@@ -43,10 +43,10 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBy
 	cfg.Dir = s.Dir
 	cfg.AuthToken = ""
 
-	cfg.LPUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
-	cfg.APUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
-	cfg.LCUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
-	cfg.ACUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
+	cfg.ListenPeerUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
+	cfg.AdvertisePeerUrls = []url.URL{{Scheme: "https", Host: "localhost:" + peerPort}}
+	cfg.ListenClientUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
+	cfg.AdvertiseClientUrls = []url.URL{{Scheme: "https", Host: "localhost:" + clientPort}}
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 
 	cfg.PeerTLSInfo.ServerName = "localhost"
@@ -83,7 +83,7 @@ func (s *Server) Run(ctx context.Context, peerPort, clientPort string, walSizeBy
 	select {
 	case <-e.Server.ReadyNotify():
 		return ClientInfo{
-			Endpoints:     []string{cfg.ACUrls[0].String()},
+			Endpoints:     []string{cfg.AdvertiseClientUrls[0].String()},
 			TLS:           clientConfig,
 			CertFile:      cfg.ClientTLSInfo.CertFile,
 			KeyFile:       cfg.ClientTLSInfo.KeyFile,
