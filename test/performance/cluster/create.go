@@ -262,7 +262,8 @@ func (o *clusterCreateOptions) registerCluster(ctx context.Context, clusterName 
 		WithKubeconfig(o.SpokeKubeconfig).
 		WithBootstrapKubeconfig(o.HubKubeconfig).
 		WithHubKubeconfigDir(agentHubKubeconfigDir).
-		WithHubKubeconfigSecreName(fmt.Sprintf("%s-hub-kubeconfig-secret", clusterName))
+		WithHubKubeconfigSecreName(fmt.Sprintf("%s-hub-kubeconfig-secret", clusterName)).
+		WithWorkloadSourceDriverConfig(agentHubKubeconfigDir + "/kubeconfig")
 	go func() {
 		if err := klusterletAgent.RunAgent(ctx); err != nil {
 			klog.Fatalf("Failed to start agent for cluster %s, %v", clusterName, err)

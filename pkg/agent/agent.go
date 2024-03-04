@@ -110,6 +110,12 @@ func (o *AgentOptions) WithHubKubeconfigSecreName(hubKubeconfigSecreName string)
 	return o
 }
 
+func (o *AgentOptions) WithWorkloadSourceDriverConfig(hubKubeConfigFile string) *AgentOptions {
+	o.WorkAgentOpts.WorkloadSourceDriver.Type = workspoke.KubeDriver
+	o.WorkAgentOpts.WorkloadSourceDriver.Config = hubKubeConfigFile
+	return o
+}
+
 func (o *AgentOptions) RunAgent(ctx context.Context) error {
 	config := singletonspoke.NewAgentConfig(o.CommonOpts, o.RegistrationAgentOpts, o.WorkAgentOpts)
 	inClusterKubeConfig, err := rest.InClusterConfig()

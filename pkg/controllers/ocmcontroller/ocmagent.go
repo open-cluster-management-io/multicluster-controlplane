@@ -88,7 +88,8 @@ func EnableSelfManagement(ctx context.Context, hubRestConfig *rest.Config, contr
 	klusterletAgent := agent.NewAgentOptions().
 		WithClusterName(selfClusterName).
 		WithBootstrapKubeconfig(bootstrapKubeConfig).
-		WithHubKubeconfigDir(agentHubKubeconfigDir)
+		WithHubKubeconfigDir(agentHubKubeconfigDir).
+		WithWorkloadSourceDriverConfig(agentHubKubeconfigDir + "/kubeconfig")
 
 	if err := klusterletAgent.RunAgent(ctx); err != nil {
 		klog.Fatalf("failed to start agents, %v", err)
