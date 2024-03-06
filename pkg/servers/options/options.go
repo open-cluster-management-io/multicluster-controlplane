@@ -148,12 +148,12 @@ func NewServerRunOptions() *ServerRunOptions {
 	}
 
 	// set default flag values
-
-	// --enable-priority-and-fairness="false"
 	genericServerRunOptions := genericoptions.NewServerRunOptions()
 
 	// --storage-backend="etcd3"
 	etcdOptions.StorageConfig.Type = "etcd3"
+	// skip health check for embedded etcd
+	etcdOptions.SkipHealthEndpoints = true
 
 	// --bind-address="0.0.0.0"
 	secureServing := secureServingOptions.WithLoopback()
@@ -198,7 +198,7 @@ func NewServerRunOptions() *ServerRunOptions {
 		Etcd:                    etcdOptions,
 		SecureServing:           secureServing,
 		Audit:                   genericoptions.NewAuditOptions(),
-		Features:                genericoptions.NewFeatureOptions(),
+		Features:                features,
 		Traces:                  genericoptions.NewTracingOptions(),
 		APIEnablement:           genericoptions.NewAPIEnablementOptions(),
 		EgressSelector:          genericoptions.NewEgressSelectorOptions(),
