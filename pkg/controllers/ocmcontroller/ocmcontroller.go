@@ -5,34 +5,48 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/metadata"
-	ocmfeature "open-cluster-management.io/api/feature"
-	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
-
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	genericinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	kubescheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
-
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	addoninformers "open-cluster-management.io/api/client/addon/informers/externalversions"
 	clusterv1client "open-cluster-management.io/api/client/cluster/clientset/versioned"
 	clusterv1informers "open-cluster-management.io/api/client/cluster/informers/externalversions"
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned"
 	workv1informers "open-cluster-management.io/api/client/work/informers/externalversions"
-	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/bootstrap"
-	"open-cluster-management.io/multicluster-controlplane/pkg/util"
+	ocmfeature "open-cluster-management.io/api/feature"
+	authv1beta1 "open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	addonhub "open-cluster-management.io/ocm/pkg/addon"
 	"open-cluster-management.io/ocm/pkg/features"
 	placementcontrollers "open-cluster-management.io/ocm/pkg/placement/controllers"
 	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 	workhub "open-cluster-management.io/ocm/pkg/work/hub"
+	ctrl "sigs.k8s.io/controller-runtime"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/addons"
+	"open-cluster-management.io/multicluster-controlplane/pkg/controllers/bootstrap"
+	mcfeature "open-cluster-management.io/multicluster-controlplane/pkg/feature"
+	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
+
+var scheme = runtime.NewScheme()
+
+func init() {
+	utilruntime.Must(kubescheme.AddToScheme(scheme))
+	utilruntime.Must(authv1beta1.AddToScheme(scheme))
+}
 
 func InstallControllers(opts options.ServerRunOptions) func(<-chan struct{}, *aggregatorapiserver.Config) error {
 	return func(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
@@ -175,6 +189,39 @@ func runControllers(ctx context.Context,
 			}
 		}()
 	}
+
+	go func() {
+		startCtrlMgr := false
+
+		mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
+			Scheme: scheme,
+			Metrics: metricsserver.Options{
+				BindAddress: "0", //TODO think about the mertics later
+			},
+		})
+		if err != nil {
+			klog.Fatalf("unable to start manager %v", err)
+		}
+
+		if features.HubMutableFeatureGate.Enabled(mcfeature.ManagedServiceAccountEphemeralIdentity) {
+
+			klog.Info("starting managed serviceaccount controller")
+			if err := addons.SetupManagedServiceAccountWithManager(ctx, mgr); err != nil {
+				klog.Fatalf("failed to start managed serviceaccount controller, %v", err)
+			}
+			startCtrlMgr = true
+		}
+
+		if !startCtrlMgr {
+			return
+		}
+
+		if err := mgr.Start(ctx); err != nil {
+			klog.Fatalf("failed to start controller manager, %v", err)
+		}
+
+		<-ctx.Done()
+	}()
 
 	go kubeInformers.Start(ctx.Done())
 	go clusterInformers.Start(ctx.Done())

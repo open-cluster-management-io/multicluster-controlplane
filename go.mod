@@ -27,6 +27,7 @@ require (
 	k8s.io/metrics v0.29.2
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 	open-cluster-management.io/api v0.13.0
+	open-cluster-management.io/managed-serviceaccount v0.5.0
 	open-cluster-management.io/ocm v0.13.0
 	sigs.k8s.io/controller-runtime v0.16.2
 )

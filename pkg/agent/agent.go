@@ -6,9 +6,11 @@ import (
 	"embed"
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/spf13/pflag"
-
 	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,20 +18,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
+	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-
-	"github.com/openshift/library-go/pkg/assets"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-
 	clusterv1informers "open-cluster-management.io/api/client/cluster/informers/externalversions"
-	"open-cluster-management.io/multicluster-controlplane/pkg/util"
+	authv1beta1 "open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
+	"open-cluster-management.io/ocm/pkg/features"
 	registrationspoke "open-cluster-management.io/ocm/pkg/registration/spoke"
 	singletonspoke "open-cluster-management.io/ocm/pkg/singleton/spoke"
 	workspoke "open-cluster-management.io/ocm/pkg/work/spoke"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"open-cluster-management.io/multicluster-controlplane/pkg/agent/addons"
+	mcfeature "open-cluster-management.io/multicluster-controlplane/pkg/feature"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
 //go:embed crds
@@ -38,6 +44,7 @@ var crds embed.FS
 var crdStaticFiles = []string{
 	"crds/0000_01_work.open-cluster-management.io_appliedmanifestworks.crd.yaml",
 	"crds/0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml",
+	"crds/0000_03_authentication.open-cluster-management.io_managedserviceaccounts_crd.yaml",
 }
 
 var (
@@ -48,6 +55,8 @@ var (
 
 func init() {
 	utilruntime.Must(crdv1.AddToScheme(genericScheme))
+	utilruntime.Must(kubescheme.AddToScheme(genericScheme))
+	utilruntime.Must(authv1beta1.AddToScheme(genericScheme))
 }
 
 type AgentOptions struct {
@@ -181,4 +190,59 @@ func (o *AgentOptions) ensureCRDs(ctx context.Context, client apiextensionsclien
 	}
 
 	return nil
+}
+
+// RunAddOns runs the addons in the agent
+func (a *AgentOptions) RunAddOns(ctx context.Context) error {
+
+	startCtrlMgr := false
+
+	clusterName := a.CommonOpts.SpokeClusterName
+
+	hubKubeConfig, err := clientcmd.BuildConfigFromFlags("", a.WorkAgentOpts.WorkloadSourceDriver.Config)
+	if err != nil {
+		return fmt.Errorf("unable to load kubeconfig from file %q: %v", a.KubeConfig, err)
+	}
+
+	hubManager, err := a.newHubManager(hubKubeConfig)
+	if err != nil {
+		return err
+	}
+
+	if features.SpokeMutableFeatureGate.Enabled(mcfeature.ManagedServiceAccount) {
+		klog.Info("starting managed serviceaccount addon agent")
+		if err := addons.StartManagedServiceAccountAgent(ctx, hubManager, clusterName); err != nil {
+			klog.Fatalf("failed to setup managed serviceaccount addon, %v", err)
+		}
+
+		startCtrlMgr = true
+	}
+
+	if !startCtrlMgr {
+		return nil
+	}
+
+	go func() {
+		klog.Info("starting the embedded hub controller-runtime manager in controlplane agent")
+		if err := hubManager.Start(ctx); err != nil {
+			klog.Fatalf("failed to start embedded hub controller-runtime manager, %v", err)
+		}
+		<-ctx.Done()
+	}()
+
+	return nil
+}
+
+func (a *AgentOptions) newHubManager(hubKubeConfig *rest.Config) (manager.Manager, error) {
+	mgr, err := ctrl.NewManager(hubKubeConfig, ctrl.Options{
+		Scheme: genericScheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0", //TODO think about the mertics later
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return mgr, nil
 }

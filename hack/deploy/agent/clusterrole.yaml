@@ -56,3 +56,6 @@ rules:
 - apiGroups: [""]
   resources: ["serviceaccounts"]
   verbs: ["impersonate"]
+- apiGroups: ["authentication.open-cluster-management.io"]
+  resources: ["managedserviceaccounts","managedserviceaccounts/status"]
+  verbs: ["get", "list", "watch", "patch","update", "delete"]
