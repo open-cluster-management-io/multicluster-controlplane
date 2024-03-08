@@ -44,7 +44,6 @@ var crds embed.FS
 var crdStaticFiles = []string{
 	"crds/0000_01_work.open-cluster-management.io_appliedmanifestworks.crd.yaml",
 	"crds/0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml",
-	"crds/0000_03_authentication.open-cluster-management.io_managedserviceaccounts_crd.yaml",
 }
 
 var (
@@ -199,7 +198,8 @@ func (a *AgentOptions) RunAddOns(ctx context.Context) error {
 
 	clusterName := a.CommonOpts.SpokeClusterName
 
-	hubKubeConfig, err := clientcmd.BuildConfigFromFlags("", a.WorkAgentOpts.WorkloadSourceDriver.Config)
+	// TODO should use 	hubKubeConfig, err := clientcmd.BuildConfigFromFlags("", a.WorkAgentOpts.WorkloadSourceDriver.Config)
+	hubKubeConfig, err := clientcmd.BuildConfigFromFlags("", a.RegistrationAgentOpts.BootstrapKubeconfig)
 	if err != nil {
 		return fmt.Errorf("unable to load kubeconfig from file %q: %v", a.KubeConfig, err)
 	}
@@ -239,6 +239,7 @@ func (a *AgentOptions) newHubManager(hubKubeConfig *rest.Config) (manager.Manage
 		Metrics: metricsserver.Options{
 			BindAddress: "0", //TODO think about the mertics later
 		},
+		Logger: ctrl.Log.WithName("ctrl-runtime-manager"),
 	})
 	if err != nil {
 		return nil, err

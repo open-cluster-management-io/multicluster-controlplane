@@ -198,6 +198,7 @@ func runControllers(ctx context.Context,
 			Metrics: metricsserver.Options{
 				BindAddress: "0", //TODO think about the mertics later
 			},
+			Logger: ctrl.Log.WithName("ctrl-runtime-manager"),
 		})
 		if err != nil {
 			klog.Fatalf("unable to start manager %v", err)

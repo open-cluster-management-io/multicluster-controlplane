@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -30,6 +31,7 @@ var (
 	spokeKubeClient  kubernetes.Interface
 	hubClusterClient clusterclient.Interface
 	hubWorkClient    workclient.Interface
+	hubDynamicClient dynamic.Interface
 )
 
 func TestE2E(t *testing.T) {
@@ -70,6 +72,11 @@ var _ = ginkgo.BeforeSuite(func() {
 		}
 
 		spokeKubeClient, err = kubernetes.NewForConfig(spokeConfig)
+		if err != nil {
+			return err
+		}
+
+		hubDynamicClient, err = dynamic.NewForConfig(hubConfig)
 		if err != nil {
 			return err
 		}
