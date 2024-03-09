@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	ServiceAccountKeyFileName = "kube-serviceaccount.key"
-	KubeconfigFileName        = "kube-aggregator.kubeconfig"
+	ServiceAccountKeyFileName   = "kube-serviceaccount.key"
+	KubeconfigFileName          = "kube-aggregator.kubeconfig"
+	InclusterKubeconfigFileName = "incluster.kubeconfig"
 	// client user info
 	UserAdmin         = "system:admin"
 	UserKubeApiserver = "kube-apiserver"
@@ -52,6 +53,9 @@ func ServiceAccountKeyFile(certsDir string) string {
 }
 func KubeConfigFile(certsDir string) string {
 	return filepath.Join(certsDir, KubeconfigFileName)
+}
+func InclusterKubeconfigFile(certsDir string) string {
+	return filepath.Join(certsDir, InclusterKubeconfigFileName)
 }
 func DefaultRootCAFile(certsDir string) string {
 	return filepath.Join(certsDir, RootCACertDirName, certchains.CACertFileName)

@@ -19,13 +19,21 @@ import (
 
 	clusterclient "open-cluster-management.io/api/client/cluster/clientset/versioned"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"open-cluster-management.io/sdk-go/pkg/helpers"
 
 	"open-cluster-management.io/multicluster-controlplane/pkg/agent"
+	"open-cluster-management.io/multicluster-controlplane/pkg/certificate"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
 	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
 const SelfManagementClusterLabel = "multicluster-controlplane.open-cluster-management.io/selfmanagement"
+
+type ClusterInfo struct {
+	ClusterName string
+	URL         string
+	CABundle    []byte
+}
 
 func InstallSelfManagementCluster(options options.ServerRunOptions) func(<-chan struct{}, *aggregatorapiserver.Config) error {
 	return func(stopCh <-chan struct{}, aggregatorConfig *aggregatorapiserver.Config) error {
@@ -52,13 +60,32 @@ func InstallSelfManagementCluster(options options.ServerRunOptions) func(<-chan 
 			}
 		}
 
-		go EnableSelfManagement(ctx, hubRestConfig, options.ControlplaneDataDir, clusterName)
+		kubeClient, err := kubernetes.NewForConfig(inClusterConfig)
+		if err != nil {
+			return err
+		}
+		apiserverURL, err := helpers.GetAPIServer(kubeClient)
+		if err != nil {
+			return err
+		}
+		caBundle, err := helpers.GetCACert(kubeClient)
+		if err != nil {
+			return err
+		}
+
+		selfClusterInfo := ClusterInfo{
+			ClusterName: clusterName,
+			URL:         apiserverURL,
+			CABundle:    caBundle,
+		}
+
+		go EnableSelfManagement(ctx, hubRestConfig, options.ControlplaneDataDir, &selfClusterInfo)
 
 		return nil
 	}
 }
 
-func EnableSelfManagement(ctx context.Context, hubRestConfig *rest.Config, controlplaneCertDir, selfClusterName string) {
+func EnableSelfManagement(ctx context.Context, hubRestConfig *rest.Config, controlplaneCertDir string, selfClusterInfo *ClusterInfo) {
 	kubeClient, err := kubernetes.NewForConfig(hubRestConfig)
 	if err != nil {
 		klog.Fatalf("Failed to kube client, %v", err)
@@ -69,16 +96,16 @@ func EnableSelfManagement(ctx context.Context, hubRestConfig *rest.Config, contr
 		klog.Fatalf("Failed to cluster client, %v", err)
 	}
 
-	if err := createNamespace(ctx, kubeClient, selfClusterName); err != nil {
+	if err := createNamespace(ctx, kubeClient, selfClusterInfo.ClusterName); err != nil {
 		klog.Fatalf("Failed to create self managed cluster namespace, %v", err)
 	}
 
 	// TODO need a controller to maintain the self managed cluster
-	if err := waitForSelfManagedCluster(ctx, clusterClient, selfClusterName); err != nil {
+	if err := waitForSelfManagedCluster(ctx, clusterClient, selfClusterInfo); err != nil {
 		klog.Fatalf("Failed to create self managed cluster, %v", err)
 	}
 
-	bootstrapKubeConfig := path.Join(controlplaneCertDir, "cert", "kube-aggregator.kubeconfig")
+	bootstrapKubeConfig := path.Join(controlplaneCertDir, "cert", certificate.InclusterKubeconfigFileName)
 	agentHubKubeconfigDir := path.Join(controlplaneCertDir, "agent", "hub-kubeconfig")
 	if err := os.MkdirAll(agentHubKubeconfigDir, os.ModePerm); err != nil {
 		klog.Fatalf("Failed to create dir %s, %v", agentHubKubeconfigDir, err)
@@ -86,7 +113,7 @@ func EnableSelfManagement(ctx context.Context, hubRestConfig *rest.Config, contr
 
 	// TODO also need provide feature gates
 	klusterletAgent := agent.NewAgentOptions().
-		WithClusterName(selfClusterName).
+		WithClusterName(selfClusterInfo.ClusterName).
 		WithBootstrapKubeconfig(bootstrapKubeConfig).
 		WithHubKubeconfigDir(agentHubKubeconfigDir).
 		WithWorkloadSourceDriverConfig(agentHubKubeconfigDir + "/kubeconfig")
@@ -114,21 +141,27 @@ func createNamespace(ctx context.Context, kubeClient kubernetes.Interface, ns st
 	return err
 }
 
-func waitForSelfManagedCluster(ctx context.Context, clusterClient clusterclient.Interface, selfClusterName string) error {
+func waitForSelfManagedCluster(ctx context.Context, clusterClient clusterclient.Interface, selfClusterInfo *ClusterInfo) error {
 	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		selfCluster, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, selfClusterName, metav1.GetOptions{})
+		selfCluster, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, selfClusterInfo.ClusterName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			_, err := clusterClient.ClusterV1().ManagedClusters().Create(
 				ctx,
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: selfClusterName,
+						Name: selfClusterInfo.ClusterName,
 						Labels: map[string]string{
 							SelfManagementClusterLabel: "",
 						},
 					},
 					Spec: clusterv1.ManagedClusterSpec{
 						HubAcceptsClient: true,
+						ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+							{
+								URL:      selfClusterInfo.URL,
+								CABundle: selfClusterInfo.CABundle,
+							},
+						},
 					},
 				},
 				metav1.CreateOptions{},

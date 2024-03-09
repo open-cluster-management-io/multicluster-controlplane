@@ -264,6 +264,17 @@ func InitKubeconfig(
 		return err
 	}
 
+	// save controlplane in-cluster kubeconfig to the data directory for self management
+	if err := util.KubeconfigWriteToFile(
+		InclusterKubeconfigFile(certDir),
+		fmt.Sprintf("https://multicluster-controlplane.%s.svc/", util.GetComponentNamespace()),
+		inClusterTrustBundlePEM,
+		kubeconfigCertPEM,
+		kubeconfigKeyPEM,
+	); err != nil {
+		return err
+	}
+
 	// expose controlplane in-cluster kubeconfig in a secret
 	if err := util.KubeconfigWroteToSecret(
 		config,

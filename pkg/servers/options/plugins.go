@@ -78,7 +78,7 @@ func RegisterAllAdmissionPlugins(plugins *admission.Plugins) {
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kube-apiserver.
 func DefaultOffAdmissionPlugins() sets.Set[string] {
-	defaultOnPlugins := sets.New(
+	defaultOnPlugins := sets.New[string](
 		lifecycle.PluginName,              // NamespaceLifecycle
 		serviceaccount.PluginName,         // ServiceAccount
 		mutatingwebhook.PluginName,        // MutatingAdmissionWebhook

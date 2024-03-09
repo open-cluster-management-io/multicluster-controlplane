@@ -13,6 +13,7 @@ autoApprovalBootstrapUsers: ""
 
 # TODO: should add restriction while enable selfmanagement
 enableSelfManagement: false
+selfManagementClusterName: ""
 
 enableDelegatingAuthentication: false
 

@@ -32,6 +32,9 @@ spec:
         {{- if eq .Values.enableSelfManagement true }}
         - "--self-management"
         {{- end }}
+        {{- if .Values.selfManagementClusterName }}
+        - "--self-management-cluster-name={{ .Values.selfManagementClusterName }}"
+        {{- end }}
         {{- if eq .Values.enableDelegatingAuthentication true }}
         - "--delegating-authentication"
         {{- end }}
