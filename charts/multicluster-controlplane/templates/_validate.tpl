@@ -18,6 +18,6 @@
             {{- fail "nodeport.port should be set while nodeport is enabled" }}
         {{- end }}
     {{- else }}
-        {{/* service not exposed */}}
+        {{/* service exposed as ClusterIP */}}
     {{- end }}
 {{- end }}
