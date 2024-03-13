@@ -3,25 +3,27 @@ package controller
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	ocmfeature "open-cluster-management.io/api/feature"
-	"open-cluster-management.io/ocm/pkg/features"
-
-	"open-cluster-management.io/multicluster-controlplane/pkg/servers"
-	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
-
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	cliflag "k8s.io/component-base/cli/flag"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/component-base/version/verflag"
+	ocmfeature "open-cluster-management.io/api/feature"
+	"open-cluster-management.io/ocm/pkg/features"
+
+	mcfeature "open-cluster-management.io/multicluster-controlplane/pkg/feature"
+	"open-cluster-management.io/multicluster-controlplane/pkg/servers"
+	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
 )
 
 func init() {
 	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubWorkFeatureGates))
 	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubRegistrationFeatureGates))
 	utilruntime.Must(features.HubMutableFeatureGate.Add(ocmfeature.DefaultHubAddonManagerFeatureGates))
+	utilruntime.Must(features.HubMutableFeatureGate.Add(mcfeature.DefaultControlPlaneFeatureGates))
 }
 
 func NewController() *cobra.Command {

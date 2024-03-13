@@ -19,6 +19,7 @@ image=${IMAGE_NAME:-"quay.io/stolostron/multicluster-controlplane:latest"}
 external_hostname=${EXTERNAL_HOSTNAME:-""}
 node_port=${NODE_PORT:-0}
 etcd_mod=${ETCD_MOD:-""}
+feature_gates=${FEATURE_GATES:-"DefaultClusterSet=true,ManagedClusterAutoApproval=true"}
 
 if [ "$uninstall"x = "uninstall"x ]; then
     helm -n ${HUB_NAME} uninstall multicluster-controlplane
@@ -33,6 +34,7 @@ args="--create-namespace"
 args="$args --set enableSelfManagement=${self_management}"
 args="$args --set image=${image}"
 args="$args --set autoApprovalBootstrapUsers=system:admin"
+args="$args --set features=${feature_gates}"
 
 if [ 0 -eq $node_port ]; then
     args="$args --set route.enabled=true"

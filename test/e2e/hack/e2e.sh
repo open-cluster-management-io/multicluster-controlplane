@@ -65,12 +65,14 @@ export EXTERNAL_HOSTNAME=${external_host_ip}
 export NODE_PORT="${external_host_port}"
 export SELF_MANAGEMENT=true
 export KUBECONFIG=${kubeconfig}
+export FEATURE_GATES="DefaultClusterSet=true\,ManagedClusterAutoApproval=true\,ManagedServiceAccountEphemeralIdentity=true"
 make deploy
 unset KUBECONFIG
 unset HUB_NAME
 unset EXTERNAL_HOSTNAME
 unset NODE_PORT
 unset SELF_MANAGEMENT
+unset FEATURE_GATES
 popd
 
 wait_command "${KUBECTL} --kubeconfig $kubeconfig -n multicluster-controlplane get secrets multicluster-controlplane-kubeconfig"

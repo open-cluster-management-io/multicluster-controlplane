@@ -4,20 +4,21 @@ package agent
 import (
 	"context"
 
+	"github.com/spf13/cobra"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apiserver/pkg/server"
+	"k8s.io/klog/v2"
 	ocmfeature "open-cluster-management.io/api/feature"
 	"open-cluster-management.io/ocm/pkg/features"
 
-	"github.com/spf13/cobra"
-	"k8s.io/apiserver/pkg/server"
-	"k8s.io/klog/v2"
-
 	"open-cluster-management.io/multicluster-controlplane/pkg/agent"
+	mcfeature "open-cluster-management.io/multicluster-controlplane/pkg/feature"
 )
 
 func init() {
 	utilruntime.Must(features.SpokeMutableFeatureGate.Add(ocmfeature.DefaultSpokeRegistrationFeatureGates))
 	utilruntime.Must(features.SpokeMutableFeatureGate.Add(ocmfeature.DefaultSpokeWorkFeatureGates))
+	utilruntime.Must(features.SpokeMutableFeatureGate.Add(mcfeature.DefaultControlPlaneAgentFeatureGates))
 }
 
 func NewAgent() *cobra.Command {
@@ -40,7 +41,14 @@ func NewAgent() *cobra.Command {
 			ctx, terminate := context.WithCancel(shutdownCtx)
 			defer terminate()
 
-			if err := agentOptions.RunAgent(ctx); err != nil {
+			go func() {
+				klog.Info("starting the controlplane agent")
+				if err := agentOptions.RunAgent(ctx); err != nil {
+					klog.Fatalf("failed to run agent, %v", err)
+				}
+			}()
+
+			if err := agentOptions.RunAddOns(ctx); err != nil {
 				return err
 			}
 
