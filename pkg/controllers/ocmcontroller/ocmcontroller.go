@@ -23,7 +23,7 @@ import (
 	clusterv1client "open-cluster-management.io/api/client/cluster/clientset/versioned"
 	clusterv1informers "open-cluster-management.io/api/client/cluster/informers/externalversions"
 	workv1client "open-cluster-management.io/api/client/work/clientset/versioned"
-	workv1informers "open-cluster-management.io/api/client/work/informers/externalversions"
+	workinformers "open-cluster-management.io/api/client/work/informers/externalversions"
 	ocmfeature "open-cluster-management.io/api/feature"
 	authv1beta1 "open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	addonhub "open-cluster-management.io/ocm/pkg/addon"
@@ -31,6 +31,7 @@ import (
 	placementcontrollers "open-cluster-management.io/ocm/pkg/placement/controllers"
 	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 	workhub "open-cluster-management.io/ocm/pkg/work/hub"
+	cloudeventswork "open-cluster-management.io/sdk-go/pkg/cloudevents/work"
 	ctrl "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -87,7 +88,7 @@ func runControllers(ctx context.Context,
 	restConfig *rest.Config,
 	kubeInformers genericinformers.SharedInformerFactory,
 	opts *registrationhub.HubManagerOptions) error {
-	eventRecorder := util.NewLoggingRecorder("registration-controller")
+	eventRecorder := util.NewLoggingRecorder("hub-controller")
 
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -126,7 +127,7 @@ func runControllers(ctx context.Context,
 	}
 
 	clusterInformers := clusterv1informers.NewSharedInformerFactory(clusterClient, 10*time.Minute)
-	workInformers := workv1informers.NewSharedInformerFactory(workClient, 10*time.Minute)
+	workInformers := workinformers.NewSharedInformerFactory(workClient, 10*time.Minute)
 	addOnInformers := addoninformers.NewSharedInformerFactory(addOnClient, 10*time.Minute)
 	dynamicInformers := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 10*time.Minute)
 
@@ -161,12 +162,13 @@ func runControllers(ctx context.Context,
 
 	if features.HubMutableFeatureGate.Enabled(ocmfeature.ManifestWorkReplicaSet) {
 		go func() {
-			if err := workhub.RunControllerManagerWithInformers(
+			// TODO(qiujian16), should expose as flags to support other types.
+			workOpts := workhub.NewWorkHubManagerOptions()
+			workOpts.WorkDriver = cloudeventswork.ConfigTypeKube
+
+			if err := workhub.NewWorkHubManagerConfig(workOpts).RunWorkHubManager(
 				ctx,
 				controllerContext,
-				workClient,
-				workInformers,
-				clusterInformers,
 			); err != nil {
 				klog.Fatal(err)
 			}
