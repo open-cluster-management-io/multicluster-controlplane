@@ -29,6 +29,7 @@ import (
 	registrationspoke "open-cluster-management.io/ocm/pkg/registration/spoke"
 	singletonspoke "open-cluster-management.io/ocm/pkg/singleton/spoke"
 	workspoke "open-cluster-management.io/ocm/pkg/work/spoke"
+	worksdk "open-cluster-management.io/sdk-go/pkg/cloudevents/work"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -119,8 +120,8 @@ func (o *AgentOptions) WithHubKubeconfigSecreName(hubKubeconfigSecreName string)
 }
 
 func (o *AgentOptions) WithWorkloadSourceDriverConfig(hubKubeConfigFile string) *AgentOptions {
-	o.WorkAgentOpts.WorkloadSourceDriver.Type = workspoke.KubeDriver
-	o.WorkAgentOpts.WorkloadSourceDriver.Config = hubKubeConfigFile
+	o.WorkAgentOpts.WorkloadSourceDriver = worksdk.ConfigTypeKube
+	o.WorkAgentOpts.WorkloadSourceConfig = hubKubeConfigFile
 	return o
 }
 
@@ -153,7 +154,7 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 	controllerContext := &controllercmd.ControllerContext{
 		KubeConfig:        inClusterKubeConfig,
 		EventRecorder:     util.NewLoggingRecorder("managed-cluster-agents"),
-		OperatorNamespace: "open-cluster-management-hub",
+		OperatorNamespace: "open-cluster-management-agent",
 	}
 
 	go utilruntime.Must(config.RunSpokeAgent(ctx, controllerContext))
