@@ -143,9 +143,10 @@ func createNamespace(ctx context.Context, kubeClient kubernetes.Interface, ns st
 
 func waitForSelfManagedCluster(ctx context.Context, clusterClient clusterclient.Interface, selfClusterInfo *ClusterInfo) error {
 	return wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+		klog.Info("Waiting for self managed cluster to be accepted")
 		selfCluster, err := clusterClient.ClusterV1().ManagedClusters().Get(ctx, selfClusterInfo.ClusterName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			_, err := clusterClient.ClusterV1().ManagedClusters().Create(
+			selfManagedCluster, err := clusterClient.ClusterV1().ManagedClusters().Create(
 				ctx,
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -167,7 +168,16 @@ func waitForSelfManagedCluster(ctx context.Context, clusterClient clusterclient.
 				metav1.CreateOptions{},
 			)
 
-			return false, err
+			// The creation of the ManagedCluster CRD may take some time to complete.
+			// Therefore, we handle the "not found" error gracefully by ignoring it
+			// and allowing the operation to retry until the resource becomes available.
+			if err == nil {
+				return meta.IsStatusConditionTrue(selfManagedCluster.Status.Conditions, clusterv1.ManagedClusterConditionHubAccepted), nil
+			} else if err != nil && errors.IsNotFound(err) {
+				return false, nil
+			} else if err != nil {
+				return false, err
+			}
 		}
 
 		if err != nil {
