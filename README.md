@@ -106,7 +106,7 @@ Field `etcd` contains config for the controlplane etcd:
 3. Run following command to deploy a controlplane
 
   ```bash
-  helm repo add ocm https://openclustermanagement.blob.core.windows.net/releases/
+  helm repo add ocm https://open-cluster-management.io/helm-charts/
   helm repo update
   helm search repo ocm
   helm install -n multicluster-controlplane multicluster-controlplane ocm/multicluster-controlplane --create-namespace --set <values to set>
