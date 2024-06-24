@@ -31,7 +31,6 @@ import (
 	placementcontrollers "open-cluster-management.io/ocm/pkg/placement/controllers"
 	registrationhub "open-cluster-management.io/ocm/pkg/registration/hub"
 	workhub "open-cluster-management.io/ocm/pkg/work/hub"
-	cloudeventswork "open-cluster-management.io/sdk-go/pkg/cloudevents/work"
 	ctrl "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -164,7 +163,7 @@ func runControllers(ctx context.Context,
 		go func() {
 			// TODO(qiujian16), should expose as flags to support other types.
 			workOpts := workhub.NewWorkHubManagerOptions()
-			workOpts.WorkDriver = cloudeventswork.ConfigTypeKube
+			workOpts.WorkDriver = "kube"
 
 			if err := workhub.NewWorkHubManagerConfig(workOpts).RunWorkHubManager(
 				ctx,
@@ -182,6 +181,7 @@ func runControllers(ctx context.Context,
 				controllerContext,
 				kubeClient,
 				addOnClient,
+				workClient,
 				clusterInformers,
 				addOnInformers,
 				workInformers,

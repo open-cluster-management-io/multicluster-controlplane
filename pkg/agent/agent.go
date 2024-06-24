@@ -29,7 +29,6 @@ import (
 	registrationspoke "open-cluster-management.io/ocm/pkg/registration/spoke"
 	singletonspoke "open-cluster-management.io/ocm/pkg/singleton/spoke"
 	workspoke "open-cluster-management.io/ocm/pkg/work/spoke"
-	worksdk "open-cluster-management.io/sdk-go/pkg/cloudevents/work"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -120,7 +119,7 @@ func (o *AgentOptions) WithHubKubeconfigSecreName(hubKubeconfigSecreName string)
 }
 
 func (o *AgentOptions) WithWorkloadSourceDriverConfig(hubKubeConfigFile string) *AgentOptions {
-	o.WorkAgentOpts.WorkloadSourceDriver = worksdk.ConfigTypeKube
+	o.WorkAgentOpts.WorkloadSourceDriver = "kube"
 	o.WorkAgentOpts.WorkloadSourceConfig = hubKubeConfigFile
 	return o
 }
