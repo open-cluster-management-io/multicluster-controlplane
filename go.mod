@@ -3,35 +3,35 @@ module open-cluster-management.io/multicluster-controlplane
 go 1.21
 
 require (
-	github.com/onsi/ginkgo/v2 v2.15.0
-	github.com/onsi/gomega v1.31.1
+	github.com/onsi/ginkgo/v2 v2.17.1
+	github.com/onsi/gomega v1.32.0
 	github.com/openshift/client-go v0.0.0-20231218140158-47f6d749b9d9
 	github.com/openshift/library-go v0.0.0-20240116081341-964bcb3f545c
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	go.etcd.io/etcd/server/v3 v3.5.10
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.29.2
-	k8s.io/apiextensions-apiserver v0.29.2
-	k8s.io/apimachinery v0.29.2
-	k8s.io/apiserver v0.29.2
-	k8s.io/client-go v0.29.2
+	k8s.io/api v0.29.4
+	k8s.io/apiextensions-apiserver v0.29.3
+	k8s.io/apimachinery v0.29.4
+	k8s.io/apiserver v0.29.3
+	k8s.io/client-go v0.29.4
 	k8s.io/cluster-bootstrap v0.29.2
-	k8s.io/component-base v0.29.2
+	k8s.io/component-base v0.29.3
 	k8s.io/controller-manager v0.29.2
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kube-aggregator v0.29.2
+	k8s.io/kube-aggregator v0.29.3
 	k8s.io/kube-controller-manager v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/kubernetes v1.29.2
 	k8s.io/metrics v0.29.2
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
-	open-cluster-management.io/api v0.13.0
-	open-cluster-management.io/managed-serviceaccount v0.5.0
-	open-cluster-management.io/ocm v0.13.1-0.20240313010556-76aa752ae4e6
-	open-cluster-management.io/sdk-go v0.13.1-0.20240312062935-0163292c290b
-	sigs.k8s.io/controller-runtime v0.17.2
+	open-cluster-management.io/api v0.14.0
+	open-cluster-management.io/managed-serviceaccount v0.6.0
+	open-cluster-management.io/ocm v0.14.0
+	open-cluster-management.io/sdk-go v0.14.0
+	sigs.k8s.io/controller-runtime v0.17.3
 )
 
 require (
@@ -47,8 +47,10 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240413090539-7fef29478991 // indirect
 	github.com/cloudevents/sdk-go/protocol/mqtt_paho/v2 v2.0.0-20231030012137-0836a524e995 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.14.0 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf // indirect
+	github.com/confluentinc/confluent-kafka-go/v2 v2.3.0 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -58,7 +60,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/eclipse/paho.golang v0.11.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
-	github.com/evanphx/json-patch v5.7.0+incompatible // indirect
+	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.8.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
@@ -145,17 +147,17 @@ require (
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.19.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
-	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
-	golang.org/x/term v0.17.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.17.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
@@ -171,11 +173,11 @@ require (
 	k8s.io/cloud-provider v0.29.2 // indirect
 	k8s.io/component-helpers v0.29.2 // indirect
 	k8s.io/dynamic-resource-allocation v0.29.2 // indirect
-	k8s.io/kms v0.29.2 // indirect
+	k8s.io/kms v0.29.3 // indirect
 	k8s.io/kubelet v0.29.2 // indirect
 	k8s.io/mount-utils v0.29.2 // indirect
 	k8s.io/pod-security-admission v0.29.2 // indirect
-	open-cluster-management.io/addon-framework v0.9.1-0.20240311065811-974d3377ecbd // indirect
+	open-cluster-management.io/addon-framework v0.10.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
