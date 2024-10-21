@@ -1,8 +1,6 @@
 module open-cluster-management.io/multicluster-controlplane
 
-go 1.22.5
-
-toolchain go1.22.8
+go 1.22.8
 
 require (
 	github.com/onsi/ginkgo/v2 v2.20.0
@@ -30,9 +28,10 @@ require (
 	k8s.io/metrics v0.30.3
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 	open-cluster-management.io/api v0.15.0
-	open-cluster-management.io/managed-serviceaccount v0.6.0
+	open-cluster-management.io/managed-serviceaccount v0.7.0
 	open-cluster-management.io/ocm v0.15.0
 	open-cluster-management.io/sdk-go v0.15.0
+	sigs.k8s.io/cluster-inventory-api v0.0.0-20240730014211-ef0154379848
 	sigs.k8s.io/controller-runtime v0.18.5
 )
 
@@ -180,7 +179,6 @@ require (
 	k8s.io/pod-security-admission v0.30.3 // indirect
 	open-cluster-management.io/addon-framework v0.11.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.29.0 // indirect
-	sigs.k8s.io/cluster-inventory-api v0.0.0-20240730014211-ef0154379848 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect

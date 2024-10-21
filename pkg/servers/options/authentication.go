@@ -495,7 +495,7 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 	}
 
 	if ret.AuthenticationConfig != nil {
-		if err := apiservervalidation.ValidateAuthenticationConfiguration(ret.AuthenticationConfig).ToAggregate(); err != nil {
+		if err := apiservervalidation.ValidateAuthenticationConfiguration(ret.AuthenticationConfig, []string{}).ToAggregate(); err != nil {
 			return kubeauthenticator.Config{}, err
 		}
 	}
@@ -603,7 +603,7 @@ func (o *BuiltInAuthenticationOptions) ApplyTo(authInfo *genericapiserver.Authen
 	authenticators := []authenticator.Request{}
 
 	// var openAPIV3SecuritySchemes spec3.SecuritySchemes
-	authenticator, openAPIV2SecurityDefinitions, openAPIV3SecuritySchemes, err := authenticatorConfig.New()
+	authenticator, _, openAPIV2SecurityDefinitions, openAPIV3SecuritySchemes, err := authenticatorConfig.New(context.Background())
 	if err != nil {
 		return err
 	}
