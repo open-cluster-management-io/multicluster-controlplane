@@ -7,7 +7,6 @@ package options
 // This should probably be part of some configuration fed into the build for a
 // given binary target.
 import (
-	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
 	certapproval "k8s.io/kubernetes/plugin/pkg/admission/certificates/approval"
 	certsigning "k8s.io/kubernetes/plugin/pkg/admission/certificates/signing"
 	certsubjectrestriction "k8s.io/kubernetes/plugin/pkg/admission/certificates/subjectrestriction"
@@ -50,10 +49,9 @@ var AllOrderedPlugins = []string{
 	// new admission plugins should generally be inserted above here
 	// webhook, resourcequota, and deny plugins must go at the end
 
-	mutatingwebhook.PluginName,           // MutatingAdmissionWebhook
-	validatingadmissionpolicy.PluginName, // ValidatingAdmissionPolicy
-	validatingwebhook.PluginName,         // ValidatingAdmissionWebhook
-	resourcequota.PluginName,             // ResourceQuota
+	mutatingwebhook.PluginName,   // MutatingAdmissionWebhook
+	validatingwebhook.PluginName, // ValidatingAdmissionWebhook
+	resourcequota.PluginName,     // ResourceQuota
 }
 
 // RegisterAllAdmissionPlugins registers all admission plugins.
