@@ -3,6 +3,8 @@ package ocmcontroller
 
 import (
 	"context"
+	cpclientset "sigs.k8s.io/cluster-inventory-api/client/clientset/versioned"
+	cpinformerv1alpha1 "sigs.k8s.io/cluster-inventory-api/client/informers/externalversions"
 	"time"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
@@ -125,8 +127,14 @@ func runControllers(ctx context.Context,
 		return err
 	}
 
+	clusterProfileClient, err := cpclientset.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
+
 	clusterInformers := clusterv1informers.NewSharedInformerFactory(clusterClient, 10*time.Minute)
 	workInformers := workinformers.NewSharedInformerFactory(workClient, 10*time.Minute)
+	clusterProfileInformers := cpinformerv1alpha1.NewSharedInformerFactory(clusterProfileClient, 30*time.Minute)
 	addOnInformers := addoninformers.NewSharedInformerFactory(addOnClient, 10*time.Minute)
 	dynamicInformers := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 10*time.Minute)
 
@@ -137,9 +145,11 @@ func runControllers(ctx context.Context,
 			kubeClient,
 			metadataClient,
 			clusterClient,
+			clusterProfileClient,
 			addOnClient,
 			kubeInformers,
 			clusterInformers,
+			clusterProfileInformers,
 			workInformers,
 			addOnInformers,
 		); err != nil {

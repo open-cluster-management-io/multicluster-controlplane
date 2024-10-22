@@ -36,6 +36,7 @@ var baseCRDs = []string{
 	"crds/0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml",
 	"crds/0000_05_clusters.open-cluster-management.io_addonplacementscores.crd.yaml",
 	"crds/0000_06_authentication.open-cluster-management.io_managedserviceaccounts_crd.yaml",
+	"crds/multicluster.x-k8s.io_clusterprofiles.yaml",
 }
 
 var ocmCRDs = []string{

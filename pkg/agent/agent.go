@@ -125,7 +125,8 @@ func (o *AgentOptions) WithWorkloadSourceDriverConfig(hubKubeConfigFile string) 
 }
 
 func (o *AgentOptions) RunAgent(ctx context.Context) error {
-	config := singletonspoke.NewAgentConfig(o.CommonOpts, o.RegistrationAgentOpts, o.WorkAgentOpts)
+	cancleCtx, cancel := context.WithCancel(ctx)
+	config := singletonspoke.NewAgentConfig(o.CommonOpts, o.RegistrationAgentOpts, o.WorkAgentOpts, cancel)
 	inClusterKubeConfig, err := rest.InClusterConfig()
 	if err != nil {
 		klog.Warningf("failed to get kubeconfig from cluster inside, will use '--kubeconfig' to build client")
@@ -156,9 +157,9 @@ func (o *AgentOptions) RunAgent(ctx context.Context) error {
 		OperatorNamespace: "open-cluster-management-agent",
 	}
 
-	go utilruntime.Must(config.RunSpokeAgent(ctx, controllerContext))
+	go utilruntime.Must(config.RunSpokeAgent(cancleCtx, controllerContext))
 
-	<-ctx.Done()
+	<-cancleCtx.Done()
 	return nil
 }
 

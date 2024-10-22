@@ -26,10 +26,9 @@ spec:
     schema:
       openAPIV3Schema:
         description: ClusterManagementAddOn represents the registration of an add-on
-          to the cluster manager. This resource allows the user to discover which
-          add-on is available for the cluster manager and also provides metadata information
-          about the add-on. This resource also provides a linkage to ManagedClusterAddOn,
-          the name of the ClusterManagementAddOn resource will be used for the namespace-scoped
+          to the cluster manager. This resource allows you to discover which add-ons
+          are available for the cluster manager and provides metadata information
+          about the add-ons. The ClusterManagementAddOn name is used for the namespace-scoped
           ManagedClusterAddOn resource. ClusterManagementAddOn is a cluster-scoped
           resource.
         properties:
@@ -139,108 +138,250 @@ spec:
                           type: string
                         rolloutStrategy:
                           default:
-                            type: UpdateAll
+                            type: All
                           description: The rollout strategy to apply addon configurations
                             change. The rollout strategy only watches the addon configurations
                             defined in ClusterManagementAddOn.
                           properties:
-                            rollingUpdate:
-                              description: Rolling update with placement config params.
-                                Present only if the type is RollingUpdate.
+                            all:
+                              description: All defines required fields for RolloutStrategy
+                                type All
                               properties:
-                                maxConcurrency:
+                                maxFailures:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  default: 25%
-                                  description: 'The maximum concurrently updating
-                                    number of clusters. Value can be an absolute number
-                                    (ex: 5) or a percentage of desired addons (ex:
-                                    10%). Absolute number is calculated from percentage
-                                    by rounding up. Defaults to 25%. Example: when
-                                    this is set to 30%, once the addon configs change,
-                                    the addon on 30% of the selected clusters will
-                                    adopt the new configs. When the addons with new
-                                    configs are healthy, the addon on the remaining
-                                    clusters will be further updated.'
+                                  default: 0
+                                  description: MaxFailures is a percentage or number
+                                    of clusters in the current rollout that can fail
+                                    before proceeding to the next rollout. Fail means
+                                    the cluster has a failed status or timeout status
+                                    (does not reach successful status after ProgressDeadline).
+                                    Once the MaxFailures is breached, the rollout
+                                    will stop. MaxFailures is only considered for
+                                    rollout types Progressive and ProgressivePerGroup.
+                                    For Progressive, this is considered over the total
+                                    number of clusters. For ProgressivePerGroup, this
+                                    is considered according to the size of the current
+                                    group. For both Progressive and ProgressivePerGroup,
+                                    the MaxFailures does not apply for MandatoryDecisionGroups,
+                                    which tolerate no failures. Default is that no
+                                    failures are tolerated.
+                                  pattern: ^((100|[0-9]{1,2})%|[0-9]+)$
                                   x-kubernetes-int-or-string: true
+                                minSuccessTime:
+                                  default: "0"
+                                  description: MinSuccessTime is a "soak" time. In
+                                    other words, the minimum amount of time the workload
+                                    applier controller will wait from the start of
+                                    each rollout before proceeding (assuming a successful
+                                    state has been reached and MaxFailures wasn't
+                                    breached). MinSuccessTime is only considered for
+                                    rollout types Progressive and ProgressivePerGroup.
+                                    The default value is 0 meaning the workload applier
+                                    proceeds immediately after a successful state
+                                    is reached. MinSuccessTime must be defined in
+                                    [0-9h]|[0-9m]|[0-9s] format examples; 2h , 90m
+                                    , 360s
+                                  type: string
+                                progressDeadline:
+                                  default: None
+                                  description: ProgressDeadline defines how long workload
+                                    applier controller will wait for the workload
+                                    to reach a successful state in the cluster. If
+                                    the workload does not reach a successful state
+                                    after ProgressDeadline, will stop waiting and
+                                    workload will be treated as "timeout" and be counted
+                                    into MaxFailures. Once the MaxFailures is breached,
+                                    the rollout will stop. ProgressDeadline default
+                                    value is "None", meaning the workload applier
+                                    will wait for a successful state indefinitely.
+                                    ProgressDeadline must be defined in [0-9h]|[0-9m]|[0-9s]
+                                    format examples; 2h , 90m , 360s
+                                  pattern: ^(([0-9])+[h|m|s])|None$
+                                  type: string
                               type: object
-                            rollingUpdateWithCanary:
-                              description: Rolling update with placement config params.
-                                Present only if the type is RollingUpdateWithCanary.
+                            progressive:
+                              description: Progressive defines required fields for
+                                RolloutStrategy type Progressive
                               properties:
+                                mandatoryDecisionGroups:
+                                  description: List of the decision groups names or
+                                    indexes to apply the workload first and fail if
+                                    workload did not reach successful state. GroupName
+                                    or GroupIndex must match with the decisionGroups
+                                    defined in the placement's decisionStrategy
+                                  items:
+                                    description: MandatoryDecisionGroup set the decision
+                                      group name or group index. GroupName is considered
+                                      first to select the decisionGroups then GroupIndex.
+                                    properties:
+                                      groupIndex:
+                                        description: GroupIndex of the decision group
+                                          should match the placementDecisions label
+                                          value with label key cluster.open-cluster-management.io/decision-group-index
+                                        format: int32
+                                        type: integer
+                                      groupName:
+                                        description: GroupName of the decision group
+                                          should match the placementDecisions label
+                                          value with label key cluster.open-cluster-management.io/decision-group-name
+                                        type: string
+                                    type: object
+                                  type: array
                                 maxConcurrency:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  default: 25%
-                                  description: 'The maximum concurrently updating
-                                    number of clusters. Value can be an absolute number
-                                    (ex: 5) or a percentage of desired addons (ex:
-                                    10%). Absolute number is calculated from percentage
-                                    by rounding up. Defaults to 25%. Example: when
-                                    this is set to 30%, once the addon configs change,
-                                    the addon on 30% of the selected clusters will
-                                    adopt the new configs. When the addons with new
-                                    configs are healthy, the addon on the remaining
-                                    clusters will be further updated.'
+                                  description: MaxConcurrency is the max number of
+                                    clusters to deploy workload concurrently. The
+                                    default value for MaxConcurrency is determined
+                                    from the clustersPerDecisionGroup defined in the
+                                    placement->DecisionStrategy.
+                                  pattern: ^((100|[0-9]{1,2})%|[0-9]+)$
                                   x-kubernetes-int-or-string: true
-                                placement:
-                                  description: Canary placement reference.
-                                  properties:
-                                    name:
-                                      description: Name is the name of the placement
-                                      minLength: 1
-                                      type: string
-                                    namespace:
-                                      description: Namespace is the namespace of the
-                                        placement
-                                      minLength: 1
-                                      type: string
-                                  required:
-                                  - name
-                                  - namespace
-                                  type: object
-                              required:
-                              - placement
+                                maxFailures:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  default: 0
+                                  description: MaxFailures is a percentage or number
+                                    of clusters in the current rollout that can fail
+                                    before proceeding to the next rollout. Fail means
+                                    the cluster has a failed status or timeout status
+                                    (does not reach successful status after ProgressDeadline).
+                                    Once the MaxFailures is breached, the rollout
+                                    will stop. MaxFailures is only considered for
+                                    rollout types Progressive and ProgressivePerGroup.
+                                    For Progressive, this is considered over the total
+                                    number of clusters. For ProgressivePerGroup, this
+                                    is considered according to the size of the current
+                                    group. For both Progressive and ProgressivePerGroup,
+                                    the MaxFailures does not apply for MandatoryDecisionGroups,
+                                    which tolerate no failures. Default is that no
+                                    failures are tolerated.
+                                  pattern: ^((100|[0-9]{1,2})%|[0-9]+)$
+                                  x-kubernetes-int-or-string: true
+                                minSuccessTime:
+                                  default: "0"
+                                  description: MinSuccessTime is a "soak" time. In
+                                    other words, the minimum amount of time the workload
+                                    applier controller will wait from the start of
+                                    each rollout before proceeding (assuming a successful
+                                    state has been reached and MaxFailures wasn't
+                                    breached). MinSuccessTime is only considered for
+                                    rollout types Progressive and ProgressivePerGroup.
+                                    The default value is 0 meaning the workload applier
+                                    proceeds immediately after a successful state
+                                    is reached. MinSuccessTime must be defined in
+                                    [0-9h]|[0-9m]|[0-9s] format examples; 2h , 90m
+                                    , 360s
+                                  type: string
+                                progressDeadline:
+                                  default: None
+                                  description: ProgressDeadline defines how long workload
+                                    applier controller will wait for the workload
+                                    to reach a successful state in the cluster. If
+                                    the workload does not reach a successful state
+                                    after ProgressDeadline, will stop waiting and
+                                    workload will be treated as "timeout" and be counted
+                                    into MaxFailures. Once the MaxFailures is breached,
+                                    the rollout will stop. ProgressDeadline default
+                                    value is "None", meaning the workload applier
+                                    will wait for a successful state indefinitely.
+                                    ProgressDeadline must be defined in [0-9h]|[0-9m]|[0-9s]
+                                    format examples; 2h , 90m , 360s
+                                  pattern: ^(([0-9])+[h|m|s])|None$
+                                  type: string
+                              type: object
+                            progressivePerGroup:
+                              description: ProgressivePerGroup defines required fields
+                                for RolloutStrategy type ProgressivePerGroup
+                              properties:
+                                mandatoryDecisionGroups:
+                                  description: List of the decision groups names or
+                                    indexes to apply the workload first and fail if
+                                    workload did not reach successful state. GroupName
+                                    or GroupIndex must match with the decisionGroups
+                                    defined in the placement's decisionStrategy
+                                  items:
+                                    description: MandatoryDecisionGroup set the decision
+                                      group name or group index. GroupName is considered
+                                      first to select the decisionGroups then GroupIndex.
+                                    properties:
+                                      groupIndex:
+                                        description: GroupIndex of the decision group
+                                          should match the placementDecisions label
+                                          value with label key cluster.open-cluster-management.io/decision-group-index
+                                        format: int32
+                                        type: integer
+                                      groupName:
+                                        description: GroupName of the decision group
+                                          should match the placementDecisions label
+                                          value with label key cluster.open-cluster-management.io/decision-group-name
+                                        type: string
+                                    type: object
+                                  type: array
+                                maxFailures:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  default: 0
+                                  description: MaxFailures is a percentage or number
+                                    of clusters in the current rollout that can fail
+                                    before proceeding to the next rollout. Fail means
+                                    the cluster has a failed status or timeout status
+                                    (does not reach successful status after ProgressDeadline).
+                                    Once the MaxFailures is breached, the rollout
+                                    will stop. MaxFailures is only considered for
+                                    rollout types Progressive and ProgressivePerGroup.
+                                    For Progressive, this is considered over the total
+                                    number of clusters. For ProgressivePerGroup, this
+                                    is considered according to the size of the current
+                                    group. For both Progressive and ProgressivePerGroup,
+                                    the MaxFailures does not apply for MandatoryDecisionGroups,
+                                    which tolerate no failures. Default is that no
+                                    failures are tolerated.
+                                  pattern: ^((100|[0-9]{1,2})%|[0-9]+)$
+                                  x-kubernetes-int-or-string: true
+                                minSuccessTime:
+                                  default: "0"
+                                  description: MinSuccessTime is a "soak" time. In
+                                    other words, the minimum amount of time the workload
+                                    applier controller will wait from the start of
+                                    each rollout before proceeding (assuming a successful
+                                    state has been reached and MaxFailures wasn't
+                                    breached). MinSuccessTime is only considered for
+                                    rollout types Progressive and ProgressivePerGroup.
+                                    The default value is 0 meaning the workload applier
+                                    proceeds immediately after a successful state
+                                    is reached. MinSuccessTime must be defined in
+                                    [0-9h]|[0-9m]|[0-9s] format examples; 2h , 90m
+                                    , 360s
+                                  type: string
+                                progressDeadline:
+                                  default: None
+                                  description: ProgressDeadline defines how long workload
+                                    applier controller will wait for the workload
+                                    to reach a successful state in the cluster. If
+                                    the workload does not reach a successful state
+                                    after ProgressDeadline, will stop waiting and
+                                    workload will be treated as "timeout" and be counted
+                                    into MaxFailures. Once the MaxFailures is breached,
+                                    the rollout will stop. ProgressDeadline default
+                                    value is "None", meaning the workload applier
+                                    will wait for a successful state indefinitely.
+                                    ProgressDeadline must be defined in [0-9h]|[0-9m]|[0-9s]
+                                    format examples; 2h , 90m , 360s
+                                  pattern: ^(([0-9])+[h|m|s])|None$
+                                  type: string
                               type: object
                             type:
-                              default: UpdateAll
-                              description: "Type is the type of the rollout strategy,
-                                it supports UpdateAll, RollingUpdate and RollingUpdateWithCanary:
-                                - UpdateAll: when configs change, apply the new configs
-                                to all the selected clusters at once. This is the
-                                default strategy. - RollingUpdate: when configs change,
-                                apply the new configs to all the selected clusters
-                                with the concurrence rate defined in MaxConcurrency.
-                                - RollingUpdateWithCanary: when configs change, wait
-                                and check if add-ons on the canary placement selected
-                                clusters have applied the new configs and are healthy,
-                                then apply the new configs to all the selected clusters
-                                with the concurrence rate defined in MaxConcurrency.
-                                \n The field lastKnownGoodConfig in the status record
-                                the last successfully applied spec hash of canary
-                                placement. If the config spec hash changes after the
-                                canary is passed and before the rollout is done, the
-                                current rollout will continue, then roll out to the
-                                latest change. \n For example, the addon configs have
-                                spec hash A. The canary is passed and the lastKnownGoodConfig
-                                would be A, and all the selected clusters are rolling
-                                out to A. Then the config spec hash changes to B.
-                                At this time, the clusters will continue rolling out
-                                to A. When the rollout is done and canary passed B,
-                                the lastKnownGoodConfig would be B and all the clusters
-                                will start rolling out to B. \n The canary placement
-                                does not have to be a subset of the install placement,
-                                and it is more like a reference for finding and checking
-                                canary clusters before upgrading all. To trigger the
-                                rollout on the canary clusters, you can define another
-                                rollout strategy with the type RollingUpdate, or even
-                                manually upgrade the addons on those clusters."
+                              default: All
                               enum:
-                              - UpdateAll
-                              - RollingUpdate
-                              - RollingUpdateWithCanary
+                              - All
+                              - Progressive
+                              - ProgressivePerGroup
                               type: string
                           type: object
                       required:

@@ -336,7 +336,7 @@ func (s *CertificateSigner) SignServingCertificate(signInfo *ServingCertificateS
 	tlsConfig, _, err := s.signerConfig.EnsureServerCert(
 		ServingCertPath(certDir),
 		ServingKeyPath(certDir),
-		sets.NewString(signInfo.Hostnames...),
+		sets.New[string](signInfo.Hostnames...),
 		signInfo.ValidityDays,
 	)
 
@@ -354,7 +354,7 @@ func (s *CertificateSigner) SignServingCertificate(signInfo *ServingCertificateS
 func (s *CertificateSigner) SignPeerCertificate(signInfo *PeerCertificateSigningRequestInfo) error {
 	certDir := filepath.Join(s.signerDir, signInfo.Name)
 
-	hostnameSet := sets.NewString(signInfo.Hostnames...)
+	hostnameSet := sets.New[string](signInfo.Hostnames...)
 	if _, err := crypto.GetServerCert(
 		PeerCertPath(certDir),
 		PeerKeyPath(certDir),

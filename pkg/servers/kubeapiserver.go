@@ -6,6 +6,9 @@ package servers
 import (
 	"crypto/tls"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
+	cacheddiscovery "k8s.io/client-go/discovery/cached"
+	"k8s.io/client-go/restmapper"
 	"net/http"
 	"net/url"
 	"time"
@@ -73,7 +76,7 @@ func createKubeAPIServerConfig(options options.ServerRunOptions) (
 ) {
 	proxyTransport := CreateProxyTransport()
 
-	genericConfig, versionedInformers, serviceResolver, pluginInitializers, admissionPostStartHook, storageFactory, err := buildGenericConfig(&options, proxyTransport)
+	genericConfig, versionedInformers, serviceResolver, pluginInitializers, storageFactory, err := buildGenericConfig(&options, proxyTransport)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -128,6 +131,19 @@ func createKubeAPIServerConfig(options options.ServerRunOptions) (
 		config.ExtraConfig.ClusterAuthenticationInfo.RequestHeaderUsernameHeaders = requestHeaderConfig.UsernameHeaders
 	}
 
+	clientgoExternalClient, err := clientgoclientset.NewForConfig(genericConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to create real client-go external client: %w", err)
+	}
+	discoveryClient := cacheddiscovery.NewMemCacheClient(clientgoExternalClient.Discovery())
+	discoveryRESTMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+
+	admissionPostStartHook := func(context genericapiserver.PostStartHookContext) error {
+		discoveryRESTMapper.Reset()
+		go wait.Until(discoveryRESTMapper.Reset, 30*time.Second, context.StopCh)
+		return nil
+	}
+
 	if err := config.GenericConfig.AddPostStartHook("start-kube-apiserver-admission-initializer", admissionPostStartHook); err != nil {
 		return nil, nil, nil, err
 	}
@@ -173,7 +189,6 @@ func buildGenericConfig(
 	versionedInformers clientgoinformers.SharedInformerFactory,
 	serviceResolver aggregatorapiserver.ServiceResolver,
 	pluginInitializers []admission.PluginInitializer,
-	admissionPostStartHook genericapiserver.PostStartHookFunc,
 	storageFactory *serverstorage.DefaultStorageFactory,
 	lastErr error,
 ) {
@@ -264,6 +279,8 @@ func buildGenericConfig(
 		return
 	}
 
+	ctx := wait.ContextForChannel(genericConfig.DrainedNotify())
+
 	authorizationConfig := options.Authorization.ToAuthorizationConfig(versionedInformers)
 	if genericConfig.EgressSelector != nil {
 		egressDialer, err := genericConfig.EgressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
@@ -273,7 +290,7 @@ func buildGenericConfig(
 		}
 		authorizationConfig.CustomDial = egressDialer
 	}
-	genericConfig.Authorization.Authorizer, genericConfig.RuleResolver, err = authorizationConfig.New()
+	genericConfig.Authorization.Authorizer, genericConfig.RuleResolver, err = authorizationConfig.New(ctx, genericConfig.APIServerID)
 	if err != nil {
 		lastErr = fmt.Errorf("invalid authorization config: %v", err)
 		return
@@ -292,7 +309,7 @@ func buildGenericConfig(
 		LoopbackClientConfig: genericConfig.LoopbackClientConfig,
 	}
 	serviceResolver = buildServiceResolver(options.EnableAggregatorRouting, genericConfig.LoopbackClientConfig.Host, versionedInformers)
-	pluginInitializers, admissionPostStartHook, err = admissionConfig.New(proxyTransport, genericConfig.EgressSelector,
+	pluginInitializers, err = admissionConfig.New(proxyTransport, genericConfig.EgressSelector,
 		serviceResolver, genericConfig.TracerProvider)
 	if err != nil {
 		lastErr = fmt.Errorf("failed to create admission plugin initializer: %v", err)
