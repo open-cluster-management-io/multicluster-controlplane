@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/registry/generic"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
@@ -22,7 +23,7 @@ type SimpleRestOptionsFactory struct {
 	TransformerOverrides map[schema.GroupResource]value.Transformer
 }
 
-func (f *SimpleRestOptionsFactory) GetRESTOptions(resource schema.GroupResource) (generic.RESTOptions, error) {
+func (f *SimpleRestOptionsFactory) GetRESTOptions(resource schema.GroupResource, example runtime.Object) (generic.RESTOptions, error) {
 	ret := generic.RESTOptions{
 		StorageConfig:             f.Options.StorageConfig.ForResource(resource),
 		Decorator:                 generic.UndecoratedStorage,

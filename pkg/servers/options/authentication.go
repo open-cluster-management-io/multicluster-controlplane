@@ -417,7 +417,7 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 	}
 
 	if o.Anonymous != nil {
-		ret.Anonymous = o.Anonymous.Allow
+		ret.Anonymous = apiserver.AnonymousAuthConfig{Enabled: o.Anonymous.Allow}
 	}
 
 	if o.BootstrapToken != nil {
@@ -513,7 +513,6 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 		if len(o.ServiceAccounts.Issuers) != 0 && len(o.APIAudiences) == 0 {
 			ret.APIAudiences = authenticator.Audiences(o.ServiceAccounts.Issuers)
 		}
-		ret.ServiceAccountKeyFiles = o.ServiceAccounts.KeyFiles
 		ret.ServiceAccountIssuers = o.ServiceAccounts.Issuers
 		ret.ServiceAccountLookup = o.ServiceAccounts.Lookup
 	}

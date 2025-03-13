@@ -1,23 +1,24 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: addonplacementscores.cluster.open-cluster-management.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: clusterprofiles.multicluster.x-k8s.io
 spec:
-  group: cluster.open-cluster-management.io
+  group: multicluster.x-k8s.io
   names:
-    kind: AddOnPlacementScore
-    listKind: AddOnPlacementScoreList
-    plural: addonplacementscores
-    singular: addonplacementscore
-  preserveUnknownFields: false
+    kind: ClusterProfile
+    listKind: ClusterProfileList
+    plural: clusterprofiles
+    singular: clusterprofile
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: |-
-          AddOnPlacementScore represents a bundle of scores of one managed cluster, which could be used by placement.
-          AddOnPlacementScore is a namespace scoped resource. The namespace of the resource is the cluster namespace.
+        description: ClusterProfile represents a single cluster in a multi-cluster
+          deployment.
         properties:
           apiVersion:
             description: |-
@@ -36,12 +37,34 @@ spec:
             type: string
           metadata:
             type: object
+          spec:
+            description: ClusterProfileSpec defines the desired state of ClusterProfile.
+            properties:
+              clusterManager:
+                description: ClusterManager defines which cluster manager owns this
+                  ClusterProfile resource
+                properties:
+                  name:
+                    description: Name defines the name of the cluster manager
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: ClusterManager is immutable
+                  rule: self == oldSelf
+              displayName:
+                description: DisplayName defines a human-readable name of the ClusterProfile
+                type: string
+            required:
+            - clusterManager
+            type: object
           status:
-            description: Status represents the status of the AddOnPlacementScore.
+            description: ClusterProfileStatus defines the observed state of ClusterProfile.
             properties:
               conditions:
-                description: Conditions contain the different condition statuses for
-                  this AddOnPlacementScore.
+                description: Conditions contains the different condition statuses
+                  for this cluster.
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource.\n---\nThis struct is intended for
@@ -110,50 +133,53 @@ spec:
                   - type
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - type
-                x-kubernetes-list-type: map
-              scores:
-                description: Scores contain a list of score name and value of this
-                  managed cluster.
+              properties:
+                description: |-
+                  Properties defines name/value pairs to represent properties of a cluster.
+                  It could be a collection of ClusterProperty (KEP-2149) resources,
+                  but could also be info based on other implementations.
+                  The names of the properties can be predefined names from ClusterProperty resources
+                  and is allowed to be customized by different cluster managers.
                 items:
-                  description: AddOnPlacementScoreItem represents the score name and
-                    value.
+                  description: |-
+                    Property defines a name/value pair to represent a property of a cluster.
+                    It could be a ClusterProperty (KEP-2149) resource,
+                    but could also be info based on other implementations.
+                    The name of the property can be predefined name from a ClusterProperty resource
+                    and is allowed to be customized by different cluster managers.
+                    This property can store various configurable details and metrics of a cluster,
+                    which may include information such as the number of nodes, total and free CPU,
+                    and total and free memory, among other potential attributes.
                   properties:
                     name:
-                      description: Name is the name of the score
+                      description: |-
+                        Name is the name of a property resource on cluster. It's a well-known
+                        or customized name to identify the property.
+                      maxLength: 253
+                      minLength: 1
                       type: string
                     value:
-                      description: Value is the value of the score. The score range
-                        is from -100 to 100.
-                      format: int32
-                      maximum: 100
-                      minimum: -100
-                      type: integer
+                      description: Value is a property-dependent string
+                      maxLength: 1024
+                      minLength: 1
+                      type: string
                   required:
                   - name
                   - value
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
-              validUntil:
-                description: |-
-                  ValidUntil defines the valid time of the scores.
-                  After this time, the scores are considered to be invalid by placement. nil means never expire.
-                  The controller owning this resource should keep the scores up-to-date.
-                format: date-time
-                type: string
+              version:
+                description: Version defines the version information of the cluster.
+                properties:
+                  kubernetes:
+                    description: Kubernetes is the kubernetes version of the cluster.
+                    type: string
+                type: object
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
