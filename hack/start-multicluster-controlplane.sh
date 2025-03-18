@@ -79,7 +79,7 @@ function start_apiserver {
     "${GO_OUT}/multicluster-controlplane" \
     "server" \
     --controlplane-config-dir="${CONFIG_DIR}" \
-    --cluster-auto-approval-users="${BOOTSTRAP_USERS}" \
+    --auto-approved-csr-users="${BOOTSTRAP_USERS}" \
     --feature-gates="${FEATURE_GATES}"  >"${APISERVER_LOG}" 2>&1 &
 
     APISERVER_PID=$!
@@ -89,7 +89,7 @@ function start_apiserver {
     || { echo "check apiserver logs: ${APISERVER_LOG}" ; exit 1 ; }
     
     echo "use 'kubectl --kubeconfig=${DATA_DIR}/cert/kube-aggregator.kubeconfig' to access the controlplane"
-    echo "$APISERVER_PID" > "${REPO_DIR}/_output/controlplane/controlpane_pid"
+    echo "$APISERVER_PID" > "${REPO_DIR}/_output/controlplane/controlplane_pid"
     chmod a+r ${DATA_DIR}/cert/kube-aggregator.kubeconfig
 }
 

@@ -23,20 +23,20 @@ import (
 )
 
 var baseCRDs = []string{
+	"crds/0000_00_addon.open-cluster-management.io_clustermanagementaddons.crd.yaml",
 	"crds/0000_00_clusters.open-cluster-management.io_managedclusters.crd.yaml",
 	"crds/0000_00_clusters.open-cluster-management.io_managedclustersets.crd.yaml",
-	"crds/0000_01_clusters.open-cluster-management.io_managedclustersetbindings.crd.yaml",
+	"crds/0000_00_multicluster.x-k8s.io_clusterprofiles.crd.yaml",
 	"crds/0000_00_work.open-cluster-management.io_manifestworks.crd.yaml",
 	"crds/0000_00_work.open-cluster-management.io_manifestworkreplicasets.crd.yaml",
-	"crds/0000_00_addon.open-cluster-management.io_clustermanagementaddons.crd.yaml",
 	"crds/0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml",
+	"crds/0000_01_clusters.open-cluster-management.io_managedclustersetbindings.crd.yaml",
 	"crds/0000_02_addon.open-cluster-management.io_addondeploymentconfigs.crd.yaml",
-	"crds/0000_03_addon.open-cluster-management.io_addontemplates.crd.yaml",
 	"crds/0000_02_clusters.open-cluster-management.io_placements.crd.yaml",
+	"crds/0000_03_addon.open-cluster-management.io_addontemplates.crd.yaml",
 	"crds/0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml",
 	"crds/0000_05_clusters.open-cluster-management.io_addonplacementscores.crd.yaml",
 	"crds/0000_06_authentication.open-cluster-management.io_managedserviceaccounts_crd.yaml",
-	"crds/multicluster.x-k8s.io_clusterprofiles.yaml",
 }
 
 var ocmCRDs = []string{
@@ -53,6 +53,7 @@ var ocmCRDs = []string{
 	"placements.cluster.open-cluster-management.io",
 	"addonplacementscores.cluster.open-cluster-management.io",
 	"managedserviceaccounts.authentication.open-cluster-management.io",
+	"clusterprofiles.multicluster.x-k8s.io",
 }
 
 var (

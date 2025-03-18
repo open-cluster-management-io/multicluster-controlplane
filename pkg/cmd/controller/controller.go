@@ -17,6 +17,7 @@ import (
 	mcfeature "open-cluster-management.io/multicluster-controlplane/pkg/feature"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers"
 	"open-cluster-management.io/multicluster-controlplane/pkg/servers/options"
+	"open-cluster-management.io/multicluster-controlplane/pkg/util"
 )
 
 func init() {
@@ -48,7 +49,7 @@ func NewController() *cobra.Command {
 				return err
 			}
 
-			return servers.NewServer(*options).Start(stopChan)
+			return servers.NewServer(*options).Start(util.GoContext(stopChan))
 		},
 		Args: func(cmd *cobra.Command, args []string) error {
 			for _, arg := range args {

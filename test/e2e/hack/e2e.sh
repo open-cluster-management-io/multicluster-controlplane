@@ -40,7 +40,7 @@ mkdir -p ${agent_deploy_dir}
 cluster="e2e-test"
 external_host_port="30443"
 kubeconfig="${cluster_dir}/${cluster}.kubeconfig"
-${KIND} create cluster --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig --name ${cluster}
+${KIND} create cluster --kubeconfig $kubeconfig --name ${cluster}
 external_host_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${cluster}-control-plane)
 
 echo "Load $IMAGE_NAME to the cluster $cluster ..."

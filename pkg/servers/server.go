@@ -2,6 +2,7 @@
 package servers
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apiserver/pkg/endpoints/discovery/aggregated"
@@ -54,18 +55,18 @@ func NewServer(options options.ServerRunOptions) *server {
 	return s
 }
 
-func (s *server) Start(stopCh <-chan struct{}) error {
+func (s *server) Start(ctx context.Context) error {
 	klog.Info("starting the server...")
 	prepared, err := s.aggregator.PrepareRun()
 	if err != nil {
 		return err
 	}
-	return prepared.Run(stopCh)
+	return prepared.Run(ctx)
 }
 
 func (s *server) AddController(name string, controller controllers.Controller) {
 	if err := s.aggregator.GenericAPIServer.AddPostStartHook(name, func(context genericapiserver.PostStartHookContext) error {
-		return controller(context.StopCh, s.aggregatorConfig)
+		return controller(context.Done(), s.aggregatorConfig)
 	}); err != nil {
 		klog.Errorf("add controller error %v", err)
 	}
@@ -80,15 +81,15 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 
 	// If additional API servers are added, they should be gated.
 	apiExtensionsConfig, err := createAPIExtensionsConfig(
-		*kubeAPIServerConfig.GenericConfig,
-		kubeAPIServerConfig.ExtraConfig.VersionedInformers,
+		*kubeAPIServerConfig.ControlPlane.Generic,
+		kubeAPIServerConfig.ControlPlane.VersionedInformers,
 		&o, 1, serviceResolver,
-		webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeAPIServerConfig.ExtraConfig.ProxyTransport, kubeAPIServerConfig.GenericConfig.EgressSelector, kubeAPIServerConfig.GenericConfig.LoopbackClientConfig, kubeAPIServerConfig.GenericConfig.TracerProvider))
+		webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeAPIServerConfig.ControlPlane.ProxyTransport, kubeAPIServerConfig.ControlPlane.Generic.EgressSelector, kubeAPIServerConfig.ControlPlane.Generic.LoopbackClientConfig, kubeAPIServerConfig.ControlPlane.Generic.TracerProvider))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create apiextensions config, %v", err)
 	}
 
-	notFoundHandler := notfoundhandler.New(kubeAPIServerConfig.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)
+	notFoundHandler := notfoundhandler.New(kubeAPIServerConfig.ControlPlane.Generic.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)
 	apiExtensionsServer, err := createAPIExtensionsServer(apiExtensionsConfig,
 		genericapiserver.NewEmptyDelegateWithCustomHandler(notFoundHandler))
 	if err != nil {
@@ -101,21 +102,21 @@ func createServerChain(o options.ServerRunOptions) (*aggregatorapiserver.Config,
 	}
 
 	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.AggregatedDiscoveryEndpoint) {
-		manager := kubeAPIServer.GenericAPIServer.AggregatedDiscoveryGroupManager
+		manager := kubeAPIServer.ControlPlane.GenericAPIServer.AggregatedDiscoveryGroupManager
 		if manager == nil {
 			manager = aggregated.NewResourceManager("apis")
 		}
-		kubeAPIServer.GenericAPIServer.AggregatedDiscoveryGroupManager = manager
-		kubeAPIServer.GenericAPIServer.AggregatedLegacyDiscoveryGroupManager = aggregated.NewResourceManager("api")
+		kubeAPIServer.ControlPlane.GenericAPIServer.AggregatedDiscoveryGroupManager = manager
+		kubeAPIServer.ControlPlane.GenericAPIServer.AggregatedLegacyDiscoveryGroupManager = aggregated.NewResourceManager("api")
 	}
 
 	// aggregator comes last in the chain
-	aggregatorConfig, err := createAggregatorConfig(*kubeAPIServerConfig.GenericConfig, &o, kubeAPIServerConfig.ExtraConfig.VersionedInformers, serviceResolver, kubeAPIServerConfig.ExtraConfig.ProxyTransport)
+	aggregatorConfig, err := createAggregatorConfig(*kubeAPIServerConfig.ControlPlane.Generic, &o, kubeAPIServerConfig.ControlPlane.VersionedInformers, serviceResolver, kubeAPIServerConfig.ControlPlane.ProxyTransport)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create aggregator config, %v", err)
 	}
 	aggregatorServer, err := createAggregatorServer(
-		aggregatorConfig, kubeAPIServer.GenericAPIServer, apiExtensionsServer.Informers,
+		aggregatorConfig, kubeAPIServer.ControlPlane.GenericAPIServer, apiExtensionsServer.Informers,
 		o.Authentication.ClientCert.ClientCA,
 		o.ExtraOptions.ClientKeyFile,
 		o.KubeControllerManagerOptions,

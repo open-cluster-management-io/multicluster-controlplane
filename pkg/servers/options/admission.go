@@ -21,7 +21,6 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
@@ -54,7 +53,7 @@ func NewAdmissionOptions() *AdmissionOptions {
 	// set RecommendedPluginOrder
 	options.RecommendedPluginOrder = AllOrderedPlugins
 	// set DefaultOffPlugins
-	options.DefaultOffPlugins = sets.NewString(DefaultOffAdmissionPlugins().UnsortedList()...)
+	options.DefaultOffPlugins = DefaultOffAdmissionPlugins()
 
 	return &AdmissionOptions{
 		GenericAdmission: options,
