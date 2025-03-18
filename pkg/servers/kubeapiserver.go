@@ -140,7 +140,7 @@ func createKubeAPIServerConfig(options options.ServerRunOptions) (
 
 	admissionPostStartHook := func(context genericapiserver.PostStartHookContext) error {
 		discoveryRESTMapper.Reset()
-		go wait.Until(discoveryRESTMapper.Reset, 30*time.Second, context.StopCh)
+		go wait.Until(discoveryRESTMapper.Reset, 30*time.Second, context.Done())
 		return nil
 	}
 
@@ -312,6 +312,7 @@ func buildGenericConfig(
 		ExternalInformers:    versionedInformers,
 		LoopbackClientConfig: genericConfig.LoopbackClientConfig,
 	}
+	serviceResolver = buildServiceResolver(options.EnableAggregatorRouting, genericConfig.LoopbackClientConfig.Host, versionedInformers)
 	genericInitializers, err := genericAdmissionConfig.New(proxyTransport, genericConfig.EgressSelector, serviceResolver, genericConfig.TracerProvider)
 	if err != nil {
 		lastErr = fmt.Errorf("failed to create admission plugin initializer: %w", err)

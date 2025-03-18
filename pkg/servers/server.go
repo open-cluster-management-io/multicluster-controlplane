@@ -66,7 +66,7 @@ func (s *server) Start(ctx context.Context) error {
 
 func (s *server) AddController(name string, controller controllers.Controller) {
 	if err := s.aggregator.GenericAPIServer.AddPostStartHook(name, func(context genericapiserver.PostStartHookContext) error {
-		return controller(context.StopCh, s.aggregatorConfig)
+		return controller(context.Done(), s.aggregatorConfig)
 	}); err != nil {
 		klog.Errorf("add controller error %v", err)
 	}
