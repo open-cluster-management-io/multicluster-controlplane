@@ -28,7 +28,7 @@ require (
 	k8s.io/metrics v0.31.4
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	open-cluster-management.io/api v0.16.1
-	open-cluster-management.io/managed-serviceaccount v0.7.1-0.20250317090106-4b4e5fc28bf9
+	open-cluster-management.io/managed-serviceaccount v0.8.0
 	open-cluster-management.io/ocm v0.16.0
 	open-cluster-management.io/sdk-go v0.16.0
 	sigs.k8s.io/cluster-inventory-api v0.0.0-20240730014211-ef0154379848
