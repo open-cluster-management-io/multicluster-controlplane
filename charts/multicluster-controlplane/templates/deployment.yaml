@@ -27,7 +27,7 @@ spec:
         - "--feature-gates={{ .Values.features }}"
         {{- end }}
         {{- if .Values.autoApprovalBootstrapUsers }}
-        - "--cluster-auto-approval-users={{ .Values.autoApprovalBootstrapUsers }}"
+        - "--auto-approved-csr-users={{ .Values.autoApprovalBootstrapUsers }}"
         {{- end }}
         {{- if eq .Values.enableSelfManagement true }}
         - "--self-management"

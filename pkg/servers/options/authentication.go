@@ -51,6 +51,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	v1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/keyutil"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog/v2"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
@@ -58,6 +59,7 @@ import (
 	"k8s.io/kubernetes/pkg/features"
 	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
 	authzmodes "k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
+	"k8s.io/kubernetes/pkg/serviceaccount"
 	"k8s.io/kubernetes/plugin/pkg/auth/authenticator/token/bootstrap"
 	"k8s.io/utils/ptr"
 )
@@ -515,6 +517,21 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 		}
 		ret.ServiceAccountIssuers = o.ServiceAccounts.Issuers
 		ret.ServiceAccountLookup = o.ServiceAccounts.Lookup
+		var pubKeys []interface{}
+		if len(o.ServiceAccounts.KeyFiles) > 0 {
+			for _, f := range o.ServiceAccounts.KeyFiles {
+				keys, err := keyutil.PublicKeysFromFile(f)
+				if err != nil {
+					return kubeauthenticator.Config{}, fmt.Errorf("failed to parse key file %q: %w", f, err)
+				}
+				pubKeys = append(pubKeys, keys...)
+			}
+			keysGetter, err := serviceaccount.StaticPublicKeysGetter(pubKeys)
+			if err != nil {
+				return kubeauthenticator.Config{}, fmt.Errorf("failed to set up public service account keys: %w", err)
+			}
+			ret.ServiceAccountPublicKeysGetter = keysGetter
+		}
 	}
 
 	if o.TokenFile != nil {

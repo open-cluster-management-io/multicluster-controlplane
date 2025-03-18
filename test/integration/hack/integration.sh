@@ -17,19 +17,19 @@ source "${REPO_DIR}/test/bin/util.sh"
 ensure_clusteradm
 
 echo "Create a cluster with kind ..."
-kind create cluster --name $managed_cluster --image "kindest/node:v1.24.7" --kubeconfig $kubeconfig
+kind create cluster --name $managed_cluster --kubeconfig $kubeconfig
 
 echo "Start controlplane with command ..."
 ${REPO_DIR}/hack/start-multicluster-controlplane.sh &
 pid=$!
 
-wait_command "cat ${output}/controlplane/controlpane_pid"
+wait_command "cat ${output}/controlplane/controlplane_pid"
 if [ 0 -ne $? ]; then
   echo "Failed to start controlplane"
   cat /tmp/kube-apiserver.log
   exit 1
 fi
-cat ${output}/controlplane/controlpane_pid
+cat ${output}/controlplane/controlplane_pid
 
 apiserver=$(kubectl config view --kubeconfig ${controlplane_kubeconfig} -ojsonpath='{.clusters[0].cluster.server}')
 echo "Joining the managed cluster $managed_cluster to ${apiserver} with clusteradm"
