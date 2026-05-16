@@ -29,7 +29,7 @@ require (
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	open-cluster-management.io/api v1.3.0
 	open-cluster-management.io/managed-serviceaccount v0.10.0
-	open-cluster-management.io/ocm v1.2.1-0.20260506150556-ba8198717c8f
+	open-cluster-management.io/ocm v1.3.0
 	open-cluster-management.io/sdk-go v1.3.0
 	sigs.k8s.io/cluster-inventory-api v0.1.0
 	sigs.k8s.io/controller-runtime v0.23.3
@@ -199,9 +199,9 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.255.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260120221211-b8f7ae30c516 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260120221211-b8f7ae30c516 // indirect
-	google.golang.org/grpc v1.80.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
+	google.golang.org/grpc v1.81.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
@@ -222,7 +222,7 @@ require (
 	k8s.io/kubelet v0.35.4 // indirect
 	k8s.io/mount-utils v0.31.4 // indirect
 	k8s.io/pod-security-admission v0.31.4 // indirect
-	open-cluster-management.io/addon-framework v1.2.1-0.20260306083712-b6f9759b7b6d // indirect
+	open-cluster-management.io/addon-framework v1.3.0 // indirect
 	sigs.k8s.io/about-api v0.0.0-20250131010323-518069c31c03 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
